@@ -1,84 +1,83 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
 
-// Estadísticas generales del sistema
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Conteos básicos
-    const totalBees = await db.bee.count()
-    const activeBees = await db.bee.count({ where: { isActive: true } })
-    const totalChildren = await db.child.count({ where: { status: 'active' } })
-    const totalRaffles = await db.raffle.count()
-    const completedRaffles = await db.raffle.count({ where: { status: 'completed' } })
+    if (!supabase) {
+      return NextResponse.json({ error: 'Base de datos no configurada' }, { status: 500 })
+    }
 
-    // Pagos
-    const payments = await db.payment.findMany()
-    const totalCollected = payments
-      .filter(p => p.status === 'completed')
-      .reduce((sum, p) => sum + p.amount, 0)
-    
-    const pendingPayments = payments.filter(p => p.status === 'pending').length
+    // Contar abejas
+    const { count: totalBees } = await supabase
+      .from('Bee')
+      .select('*', { count: 'exact', head: true })
 
-    // Premios entregados
-    const winners = await db.raffleWinner.findMany()
-    const totalPrizesPaid = winners
-      .filter(w => w.paymentStatus === 'paid')
-      .reduce((sum, w) => sum + w.prizeAmount, 0)
+    const { count: activeBees } = await supabase
+      .from('Bee')
+      .select('*', { count: 'exact', head: true })
+      .eq('isActive', true)
 
-    // Acciones en el sistema
-    const actions = await db.action.findMany()
-    const totalActions = actions.reduce((sum, a) => sum + a.quantity, 0)
+    // Contar usuarios
+    const { count: totalUsers } = await supabase
+      .from('User')
+      .select('*', { count: 'exact', head: true })
 
-    // Códigos de regalo
-    const totalGiftCodes = await db.giftAction.count()
-    const activatedGiftCodes = await db.giftAction.count({ where: { status: 'activated' } })
+    // Contar pagos pendientes
+    const { count: pendingPayments } = await supabase
+      .from('Payment')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending')
 
-    // Últimas abejas registradas
-    const recentBees = await db.bee.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { name: true, email: true } }
-      }
-    })
+    // Obtener últimos 5 usuarios con sus bees
+    const { data: recentUsers } = await supabase
+      .from('User')
+      .select(`
+        id,
+        email,
+        name,
+        createdAt,
+        Bee (
+          affiliationNumber
+        )
+      `)
+      .order('createdAt', { ascending: false })
+      .limit(5)
 
-    // Próximos sorteos
-    const upcomingRaffles = await db.raffle.findMany({
-      where: { status: 'scheduled' },
-      take: 5,
-      orderBy: { scheduledDate: 'asc' }
-    })
+    const recentBees = recentUsers?.map(u => ({
+      id: u.id,
+      affiliationNumber: u.Bee?.[0]?.affiliationNumber || 'N/A',
+      createdAt: u.createdAt,
+      user: { name: u.name, email: u.email }
+    })) || []
 
     return NextResponse.json({
       success: true,
       data: {
         counts: {
-          totalBees,
-          activeBees,
-          totalChildren,
-          totalRaffles,
-          completedRaffles,
-          pendingPayments,
-          totalGiftCodes,
-          activatedGiftCodes
+          totalBees: totalBees || 0,
+          activeBees: activeBees || 0,
+          totalUsers: totalUsers || 0,
+          totalChildren: 0,
+          totalRaffles: 0,
+          completedRaffles: 0,
+          pendingPayments: pendingPayments || 0,
+          totalGiftCodes: 0,
+          activatedGiftCodes: 0
         },
         financial: {
-          totalCollected,
-          totalPrizesPaid,
-          totalActions
+          totalCollected: 0,
+          totalPrizesPaid: 0,
+          totalActions: 0
         },
         recent: {
           bees: recentBees,
-          raffles: upcomingRaffles
+          raffles: []
         }
       }
     })
 
   } catch (error) {
     console.error('Error obteniendo estadísticas:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }

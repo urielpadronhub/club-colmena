@@ -1,106 +1,131 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
-// Obtener datos completos de la abeja
 export async function GET(request: NextRequest) {
   try {
+    if (!supabase) {
+      return NextResponse.json({ error: 'Base de datos no configurada' }, { status: 500 })
+    }
+
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
-    const beeId = searchParams.get('beeId')
 
-    if (!userId && !beeId) {
-      return NextResponse.json(
-        { error: 'userId o beeId es requerido' },
-        { status: 400 }
-      )
+    if (!userId) {
+      return NextResponse.json({ error: 'userId es requerido' }, { status: 400 })
     }
 
-    // Obtener la abeja con todos sus datos
-    const bee = await db.bee.findFirst({
-      where: userId ? { userId } : { id: beeId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true
-          }
-        },
-        actions: {
-          orderBy: { createdAt: 'desc' }
-        },
-        giftActionsGiven: {
-          include: {
-            receiverBee: {
-              select: {
-                affiliationNumber: true,
-                user: { select: { name: true } }
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' }
-        },
-        payments: {
-          orderBy: { createdAt: 'desc' }
-        },
-        raffleWins: {
-          include: {
-            raffle: true
-          },
-          orderBy: { createdAt: 'desc' }
-        },
-        bankAccount: true,
-        _count: {
-          select: {
-            referredBees: true
-          }
-        }
-      }
-    })
+    // Obtener datos del usuario con su Bee
+    const { data: user, error: userError } = await supabase
+      .from('User')
+      .select(`
+        id,
+        email,
+        name,
+        role,
+        Bee (
+          id,
+          cedula,
+          phone,
+          address,
+          affiliationNumber,
+          memberType,
+          eliteNumber,
+          founderNumber,
+          isActive,
+          activationPaid,
+          activationDate,
+          createdAt
+        )
+      `)
+      .eq('id', userId)
+      .single()
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
+    }
+
+    const bee = user.Bee && Array.isArray(user.Bee) && user.Bee.length > 0 ? user.Bee[0] : null
 
     if (!bee) {
-      return NextResponse.json(
-        { error: 'Abeja no encontrada' },
-        { status: 404 }
-      )
+      return NextResponse.json({ 
+        success: true, 
+        data: { 
+          user: { id: user.id, name: user.name, email: user.email, role: user.role },
+          bee: null
+        } 
+      })
     }
 
-    // Calcular carga accionaria total
-    const totalActions = bee.actions.reduce((sum, action) => sum + action.quantity, 0)
+    // Obtener acciones
+    const { data: actions } = await supabase
+      .from('Action')
+      .select('*')
+      .eq('beeId', bee.id)
+      .order('createdAt', { ascending: false })
 
-    // Acciones de regalo disponibles
-    const availableGiftActions = await db.giftAction.findMany({
-      where: {
-        giverBeeId: bee.id,
-        status: 'available'
-      }
-    })
+    // Obtener pagos
+    const { data: payments } = await supabase
+      .from('Payment')
+      .select('*')
+      .eq('beeId', bee.id)
+      .order('createdAt', { ascending: false })
 
-    // Contar referidos activos
-    const activeReferrals = await db.bee.count({
-      where: {
-        referredByBeeId: bee.id,
-        isActive: true
-      }
-    })
+    // Obtener códigos de regalo disponibles
+    const { data: giftActions } = await supabase
+      .from('GiftAction')
+      .select('id, giftCode, status')
+      .eq('giverBeeId', bee.id)
+      .eq('status', 'available')
+
+    // Obtener premios ganados
+    const { data: raffleWins } = await supabase
+      .from('RaffleWinner')
+      .select(`
+        id,
+        prizeAmount,
+        prizePosition,
+        paymentStatus,
+        Raffle (name, type)
+      `)
+      .eq('beeId', bee.id)
+
+    // Obtener cuenta bancaria
+    const { data: bankAccount } = await supabase
+      .from('BankAccount')
+      .select('*')
+      .eq('beeId', bee.id)
+      .single()
+
+    // Calcular total de acciones
+    const totalActions = actions?.reduce((sum, a) => sum + (a.quantity || 0), 0) || 0
 
     return NextResponse.json({
       success: true,
       data: {
-        ...bee,
+        id: bee.id,
+        affiliationNumber: bee.affiliationNumber,
+        cedula: bee.cedula,
+        phone: bee.phone,
+        address: bee.address,
+        isActive: bee.isActive,
+        activationPaid: bee.activationPaid,
+        createdAt: bee.createdAt,
+        user: { name: user.name, email: user.email },
+        memberType: bee.memberType,
+        eliteNumber: bee.eliteNumber,
+        founderNumber: bee.founderNumber,
+        actions: actions || [],
+        payments: payments || [],
+        raffleWins: raffleWins || [],
+        bankAccount: bankAccount || null,
         totalActions,
-        availableGiftActions,
-        activeReferrals,
-        giftActionsCount: availableGiftActions.length
+        availableGiftActions: giftActions || [],
+        activeReferrals: 0
       }
     })
 
   } catch (error) {
-    console.error('Error obteniendo abeja:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    console.error('Error obteniendo datos del bee:', error)
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
