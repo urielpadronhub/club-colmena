@@ -18,15 +18,21 @@ async function generateGiftCode(): Promise<string> {
 }
 
 // Generar número de afiliación único
-async function generateAffiliationNumber(): Promise<string> {
-  if (!supabase) return `000-000-${Date.now().toString().slice(-8)}`
+// Formato: Elite#-Fundador#-Cedula
+// Para socio Formal sin referido: 000-000-Cedula
+async function generateAffiliationNumber(cedula: string, referralData?: { eliteNumber: number; founderNumber: number }): Promise<string> {
+  // Limpiar la cédula (quitar V-, E-, guiones, espacios)
+  const cleanCedula = cedula.replace(/^[VE]-?/i, '').replace(/[-\s]/g, '').padStart(8, '0')
   
-  const { count } = await supabase
-    .from('Bee')
-    .select('*', { count: 'exact', head: true })
+  if (referralData) {
+    // Si viene por invitación de un Fundador
+    const eliteNum = referralData.eliteNumber.toString().padStart(3, '0')
+    const founderNum = referralData.founderNumber.toString().padStart(3, '0')
+    return `${eliteNum}-${founderNum}-${cleanCedula}`
+  }
   
-  const num = ((count || 0) + 1).toString().padStart(3, '0')
-  return `${num}-000-${Date.now().toString().slice(-8)}`
+  // Socio Formal sin invitación: 000-000-Cedula
+  return `000-000-${cleanCedula}`
 }
 
 export async function POST(request: NextRequest) {
@@ -110,8 +116,41 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generar número de afiliación
-    const affiliationNumber = await generateAffiliationNumber()
+    // Verificar si hay código de regalo (invitación)
+    let referralData = undefined
+    if (giftCode) {
+      // Buscar quién dio el código de regalo
+      const { data: giftAction } = await supabase
+        .from('GiftAction')
+        .select(`
+          id,
+          giverBeeId,
+          Bee (
+            id,
+            memberType,
+            eliteNumber,
+            founderNumber
+          )
+        `)
+        .eq('giftCode', giftCode)
+        .eq('status', 'available')
+        .single()
+      
+      if (giftAction && giftAction.Bee) {
+        const giverBee = Array.isArray(giftAction.Bee) ? giftAction.Bee[0] : giftAction.Bee
+        if (giverBee.eliteNumber && giverBee.founderNumber) {
+          referralData = {
+            eliteNumber: giverBee.eliteNumber,
+            founderNumber: giverBee.founderNumber
+          }
+        }
+      }
+    }
+
+    // Generar número de afiliación con el formato correcto
+    // Formato: Elite#-Fundador#-Cedula (para socios con invitación)
+    // Formato: 000-000-Cedula (para socios Formales sin invitación)
+    const affiliationNumber = await generateAffiliationNumber(cedula, referralData)
 
     // Crear la abeja
     const { error: beeError } = await supabase

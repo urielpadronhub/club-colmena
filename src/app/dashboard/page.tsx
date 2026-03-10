@@ -52,6 +52,9 @@ interface BeeData {
   isActive: boolean
   activationPaid: boolean
   createdAt: string
+  memberType: string
+  eliteNumber: number | null
+  founderNumber: number | null
   user: { name: string; email: string }
   actions: Array<{
     id: string
@@ -285,8 +288,20 @@ export default function Dashboard() {
                 <p className="text-amber-100 mt-2">{beeData.user.name}</p>
               </div>
               <div className="text-right">
-                <Badge className={beeData.isActive ? "bg-green-500" : "bg-red-500"}>
-                  {beeData.isActive ? 'Activo' : 'Pendiente de activación'}
+                {/* Badge de tipo de socio */}
+                <Badge className={
+                  beeData.memberType === 'presidente' ? "bg-yellow-400 text-yellow-900" :
+                  beeData.memberType === 'elite' ? "bg-purple-600" :
+                  beeData.memberType === 'fundador' ? "bg-blue-500" :
+                  "bg-gray-400"
+                }>
+                  {beeData.memberType === 'presidente' ? '👑 Presidente' :
+                   beeData.memberType === 'elite' ? '⭐ Elite' :
+                   beeData.memberType === 'fundador' ? '🏅 Fundador' :
+                   '🐝 Formal'}
+                </Badge>
+                <Badge className={beeData.isActive ? "bg-green-500 ml-2" : "bg-red-500 ml-2"}>
+                  {beeData.isActive ? 'Activo' : 'Pendiente'}
                 </Badge>
                 <p className="text-amber-100 text-sm mt-2">
                   Carga Accionaria: <span className="font-bold text-white">{beeData.totalActions}</span>
