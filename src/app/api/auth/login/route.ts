@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
           cedula,
           phone,
           affiliationNumber,
+          memberType,
           isActive,
           activationPaid,
           activationDate

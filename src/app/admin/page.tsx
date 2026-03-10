@@ -61,6 +61,7 @@ interface BeeItem {
   cedula: string
   phone: string
   isActive: boolean
+  memberType: string
   createdAt: string
   user: { name: string; email: string }
   _count: {
@@ -84,8 +85,19 @@ interface Raffle {
   }
 }
 
+interface UserData {
+  id: string
+  name: string
+  email: string
+  role: string
+  bee: {
+    memberType: string
+  } | null
+}
+
 export default function AdminDashboard() {
   const router = useRouter()
+  const [user, setUser] = useState<UserData | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
   const [bees, setBees] = useState<BeeItem[]>([])
   const [raffles, setRaffles] = useState<Raffle[]>([])
@@ -106,7 +118,13 @@ export default function AdminDashboard() {
       return
     }
     const parsedUser = JSON.parse(userData)
-    if (parsedUser.role !== 'admin') {
+    setUser(parsedUser)
+    
+    // Permitir acceso a admin y presidenta
+    const isAdmin = parsedUser.role === 'admin'
+    const isPresidenta = parsedUser.bee?.memberType === 'presidente'
+    
+    if (!isAdmin && !isPresidenta) {
       router.push('/dashboard')
       return
     }
@@ -201,6 +219,42 @@ export default function AdminDashboard() {
       fetchData()
     } catch (error) {
       console.error('Error toggling bee status:', error)
+    }
+  }
+
+  const handleDeleteBee = async (beeId: string, beeName: string) => {
+    if (!confirm(`¿Está seguro de eliminar al socio "${beeName}"? Esta acción no se puede deshacer.`)) return
+    
+    try {
+      const response = await fetch('/api/admin/delete-bee', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          beeId,
+          requestUserId: user?.id
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        alert('Socio eliminado correctamente')
+        fetchData()
+      } else {
+        alert('Error: ' + data.error)
+      }
+    } catch (error) {
+      console.error('Error deleting bee:', error)
+      alert('Error al eliminar socio')
+    }
+  }
+
+  const getMemberTypeLabel = (memberType: string) => {
+    switch (memberType) {
+      case 'presidente': return { label: '👑 Presidente', color: 'bg-yellow-400 text-yellow-900' }
+      case 'elite': return { label: '⭐ Elite', color: 'bg-purple-600 text-white' }
+      case 'fundador': return { label: '🏅 Fundador', color: 'bg-blue-500 text-white' }
+      default: return { label: '🐝 Formal', color: 'bg-gray-400 text-white' }
     }
   }
 
@@ -381,37 +435,51 @@ export default function AdminDashboard() {
                         <th className="text-left p-3">Nombre</th>
                         <th className="text-left p-3">Email</th>
                         <th className="text-left p-3">Cédula</th>
-                        <th className="text-left p-3">Acciones</th>
+                        <th className="text-left p-3">Tipo</th>
                         <th className="text-left p-3">Estado</th>
-                        <th className="text-left p-3">Operación</th>
+                        <th className="text-left p-3">Operaciones</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {bees.map((bee) => (
-                        <tr key={bee.id} className="border-b hover:bg-gray-50">
-                          <td className="p-3 font-mono text-sm">{bee.affiliationNumber}</td>
-                          <td className="p-3">{bee.user.name}</td>
-                          <td className="p-3 text-sm text-gray-500">{bee.user.email}</td>
-                          <td className="p-3">{bee.cedula}</td>
-                          <td className="p-3">
-                            <Badge variant="outline">{bee._count.actions}</Badge>
-                          </td>
-                          <td className="p-3">
-                            <Badge className={bee.isActive ? 'bg-green-500' : 'bg-red-500'}>
-                              {bee.isActive ? 'Activo' : 'Inactivo'}
-                            </Badge>
-                          </td>
-                          <td className="p-3">
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handleToggleBeeStatus(bee.id, bee.isActive)}
-                            >
-                              {bee.isActive ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                      {bees.map((bee) => {
+                        const memberInfo = getMemberTypeLabel(bee.memberType)
+                        return (
+                          <tr key={bee.id} className="border-b hover:bg-gray-50">
+                            <td className="p-3 font-mono text-sm">{bee.affiliationNumber}</td>
+                            <td className="p-3">{bee.user.name}</td>
+                            <td className="p-3 text-sm text-gray-500">{bee.user.email}</td>
+                            <td className="p-3">{bee.cedula}</td>
+                            <td className="p-3">
+                              <Badge className={memberInfo.color}>{memberInfo.label}</Badge>
+                            </td>
+                            <td className="p-3">
+                              <Badge className={bee.isActive ? 'bg-green-500' : 'bg-red-500'}>
+                                {bee.isActive ? 'Activo' : 'Inactivo'}
+                              </Badge>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  title={bee.isActive ? 'Desactivar' : 'Activar'}
+                                  onClick={() => handleToggleBeeStatus(bee.id, bee.isActive)}
+                                >
+                                  {bee.isActive ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  title="Eliminar socio"
+                                  onClick={() => handleDeleteBee(bee.id, bee.user.name)}
+                                >
+                                  🗑️
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
