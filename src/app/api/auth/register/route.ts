@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { createHash } from 'crypto'
+import { randomUUID } from 'crypto'
 
 function simpleHash(text: string): string {
   return createHash('sha256').update(text).digest('hex')
@@ -18,7 +19,9 @@ async function generateGiftCode(): Promise<string> {
 
 // Generar número de afiliación único
 async function generateAffiliationNumber(): Promise<string> {
-  const { count } = await supabase!
+  if (!supabase) return `000-000-${Date.now().toString().slice(-8)}`
+  
+  const { count } = await supabase
     .from('Bee')
     .select('*', { count: 'exact', head: true })
   
@@ -83,21 +86,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Generar IDs
+    const userId = randomUUID()
+    const beeId = randomUUID()
+
     // Crear el usuario
-    const { data: user, error: userError } = await supabase
+    const { error: userError } = await supabase
       .from('User')
       .insert({
+        id: userId,
         name,
         email,
         password: simpleHash(password),
-        role: 'bee'
+        role: 'bee',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       })
-      .select()
-      .single()
 
-    if (userError || !user) {
+    if (userError) {
       return NextResponse.json(
-        { error: 'Error al crear usuario: ' + (userError?.message || 'Error desconocido') },
+        { error: 'Error al crear usuario: ' + userError.message },
         { status: 500 }
       )
     }
@@ -106,10 +114,11 @@ export async function POST(request: NextRequest) {
     const affiliationNumber = await generateAffiliationNumber()
 
     // Crear la abeja
-    const { data: bee, error: beeError } = await supabase
+    const { error: beeError } = await supabase
       .from('Bee')
       .insert({
-        userId: user.id,
+        id: beeId,
+        userId: userId,
         cedula,
         phone,
         address: address || null,
@@ -118,16 +127,16 @@ export async function POST(request: NextRequest) {
         memberType: 'formal',
         referredByCode: giftCode || null,
         activationPaid: false,
-        isActive: false
+        isActive: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       })
-      .select()
-      .single()
 
-    if (beeError || !bee) {
+    if (beeError) {
       // Si falla, eliminar el usuario creado
-      await supabase.from('User').delete().eq('id', user.id)
+      await supabase.from('User').delete().eq('id', userId)
       return NextResponse.json(
-        { error: 'Error al crear perfil de abeja: ' + (beeError?.message || 'Error desconocido') },
+        { error: 'Error al crear perfil de abeja: ' + beeError.message },
         { status: 500 }
       )
     }
@@ -139,32 +148,24 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('GiftAction')
         .insert({
-          giverBeeId: bee.id,
+          id: randomUUID(),
+          giverBeeId: beeId,
           giftCode: code,
-          status: 'available'
+          status: 'available',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         })
       giftCodes.push(code)
     }
-
-    // Crear el pago de activación pendiente
-    await supabase
-      .from('Payment')
-      .insert({
-        beeId: bee.id,
-        type: 'activation',
-        amount: 2.0,
-        status: 'pending',
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      })
 
     return NextResponse.json({
       success: true,
       message: 'Registro exitoso',
       data: {
-        userId: user.id,
-        beeId: bee.id,
-        affiliationNumber: bee.affiliationNumber,
-        memberType: bee.memberType,
+        userId: userId,
+        beeId: beeId,
+        affiliationNumber: affiliationNumber,
+        memberType: 'formal',
         giftCodes,
         requiresActivation: true
       }
