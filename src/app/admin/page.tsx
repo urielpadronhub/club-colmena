@@ -16,7 +16,6 @@ import {
   Settings, 
   LogOut,
   TrendingUp,
-  Gift,
   Calendar,
   Sparkles,
   CheckCircle,
@@ -24,7 +23,9 @@ import {
   Star,
   Award,
   RefreshCw,
-  Send
+  Send,
+  Copy,
+  Search
 } from 'lucide-react'
 
 interface Stats {
@@ -157,11 +158,16 @@ export default function AdminDashboard() {
     scheduledDate: ''
   })
   
-  // Estados para asignación de códigos
-  const [assignCode, setAssignCode] = useState('')
-  const [assignToName, setAssignToName] = useState('')
+  // Estados separados para cada formulario
+  const [eliteCode, setEliteCode] = useState('')
+  const [eliteName, setEliteName] = useState('')
+  const [founderCode, setFounderCode] = useState('')
+  const [founderName, setFounderName] = useState('')
   const [assigning, setAssigning] = useState(false)
   const [initLoading, setInitLoading] = useState(false)
+  const [searchElite, setSearchElite] = useState('')
+  const [searchFounder, setSearchFounder] = useState('')
+  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
 
   useEffect(() => {
     const userData = localStorage.getItem('user')
@@ -172,7 +178,6 @@ export default function AdminDashboard() {
     const parsedUser = JSON.parse(userData)
     setUser(parsedUser)
     
-    // Permitir acceso a admin y presidenta
     const isAdmin = parsedUser.role === 'admin'
     const isPresidenta = parsedUser.bee?.memberType === 'presidente'
     
@@ -207,6 +212,11 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const showMessage = (type: 'success' | 'error', text: string) => {
+    setMessage({ type, text })
+    setTimeout(() => setMessage(null), 5000)
   }
 
   const handleCreateRaffle = async (e: React.FormEvent) => {
@@ -320,22 +330,22 @@ export default function AdminDashboard() {
       
       const data = await response.json()
       if (data.success) {
-        alert(data.message)
+        showMessage('success', data.message)
         fetchData()
       } else {
-        alert('Error: ' + data.error)
+        showMessage('error', data.error || 'Error al inicializar')
       }
     } catch (error) {
       console.error('Error initializing codes:', error)
-      alert('Error al inicializar códigos')
+      showMessage('error', 'Error al inicializar códigos')
     } finally {
       setInitLoading(false)
     }
   }
 
-  const handleAssignCode = async (type: 'elite' | 'founder') => {
-    if (!assignCode || !assignToName) {
-      alert('Por favor ingrese el código y el nombre del asignatario')
+  const handleAssignEliteCode = async () => {
+    if (!eliteCode || !eliteName) {
+      showMessage('error', 'Por favor ingrese el código y el nombre')
       return
     }
     
@@ -345,28 +355,69 @@ export default function AdminDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: type === 'elite' ? 'assign-elite' : 'assign-founder',
-          code: assignCode,
-          assignTo: assignToName,
+          action: 'assign-elite',
+          code: eliteCode,
+          assignTo: eliteName,
           adminKey: 'COLMENA2025'
         })
       })
       
       const data = await response.json()
       if (data.success) {
-        alert(`✅ ${data.message}\n\nCódigo: ${data.code}\n${type === 'founder' ? `ADN: ${data.adnPrefix}` : `Número Elite: ${data.eliteNumber}`}`)
-        setAssignCode('')
-        setAssignToName('')
+        showMessage('success', `✅ Código ${data.code} asignado a ${eliteName}. Número Elite: ${data.eliteNumber}`)
+        setEliteCode('')
+        setEliteName('')
         fetchData()
       } else {
-        alert('Error: ' + data.error)
+        showMessage('error', data.error || 'Error al asignar')
       }
     } catch (error) {
       console.error('Error assigning code:', error)
-      alert('Error al asignar código')
+      showMessage('error', 'Error al asignar código')
     } finally {
       setAssigning(false)
     }
+  }
+
+  const handleAssignFounderCode = async () => {
+    if (!founderCode || !founderName) {
+      showMessage('error', 'Por favor ingrese el código y el nombre')
+      return
+    }
+    
+    setAssigning(true)
+    try {
+      const response = await fetch('/api/admin/codes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'assign-founder',
+          code: founderCode,
+          assignTo: founderName,
+          adminKey: 'COLMENA2025'
+        })
+      })
+      
+      const data = await response.json()
+      if (data.success) {
+        showMessage('success', `✅ Código ${data.code} asignado a ${founderName}. ADN: ${data.adnPrefix}`)
+        setFounderCode('')
+        setFounderName('')
+        fetchData()
+      } else {
+        showMessage('error', data.error || 'Error al asignar')
+      }
+    } catch (error) {
+      console.error('Error assigning code:', error)
+      showMessage('error', 'Error al asignar código')
+    } finally {
+      setAssigning(false)
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    showMessage('success', `Copiado: ${text}`)
   }
 
   const getMemberTypeLabel = (memberType: string) => {
@@ -382,6 +433,21 @@ export default function AdminDashboard() {
     localStorage.removeItem('user')
     router.push('/')
   }
+
+  // Filtrar códigos para búsqueda
+  const filteredEliteCodes = codesData?.elite.codes.filter(c => 
+    c.code.toLowerCase().includes(searchElite.toLowerCase()) ||
+    (c.assigned_to_name && c.assigned_to_name.toLowerCase().includes(searchElite.toLowerCase()))
+  ) || []
+
+  const filteredFounderCodes = codesData?.founder.codes.filter(c => 
+    c.code.toLowerCase().includes(searchFounder.toLowerCase()) ||
+    (c.assigned_to_name && c.assigned_to_name.toLowerCase().includes(searchFounder.toLowerCase()))
+  ) || []
+
+  // Separar fundadores por tipo
+  const becasCodes = filteredFounderCodes.filter(c => c.elite_number === 0)
+  const comercialesCodes = filteredFounderCodes.filter(c => c.elite_number > 0)
 
   if (loading) {
     return (
@@ -415,6 +481,13 @@ export default function AdminDashboard() {
           </div>
         </div>
       </header>
+
+      {/* Mensaje de estado */}
+      {message && (
+        <div className={`container mx-auto px-4 mt-4 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {message.text}
+        </div>
+      )}
 
       <main className="container mx-auto px-4 py-8">
         {/* Estadísticas principales */}
@@ -470,81 +543,398 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tabs principales */}
-        <Tabs defaultValue="resumen" className="space-y-6">
+        <Tabs defaultValue="codigos" className="space-y-6">
           <TabsList className="bg-white">
-            <TabsTrigger value="resumen">Resumen</TabsTrigger>
-            <TabsTrigger value="abejas">Abejas</TabsTrigger>
-            <TabsTrigger value="sorteos">Sorteos</TabsTrigger>
-            <TabsTrigger value="codigos">Codigos</TabsTrigger>
+            <TabsTrigger value="codigos">🎯 Códigos ADN</TabsTrigger>
+            <TabsTrigger value="abejas">🐝 Socios</TabsTrigger>
+            <TabsTrigger value="sorteos">🏆 Sorteos</TabsTrigger>
+            <TabsTrigger value="resumen">📊 Resumen</TabsTrigger>
           </TabsList>
 
-          {/* Tab: Resumen */}
-          <TabsContent value="resumen" className="space-y-6">
+          {/* Tab: Códigos ADN */}
+          <TabsContent value="codigos" className="space-y-6">
+            
+            {/* INSTRUCCIONES */}
+            <Card className="bg-amber-50 border-amber-200">
+              <CardContent className="pt-6">
+                <h3 className="font-bold text-amber-800 mb-2">📌 Instrucciones</h3>
+                <ol className="list-decimal list-inside text-sm text-amber-700 space-y-1">
+                  <li>Si los contadores están en 0, click en "Inicializar Códigos"</li>
+                  <li>Para asignar: ingresa el código + nombre y click en "Asignar"</li>
+                  <li>Los códigos verdes están disponibles, los ámbar ya asignados</li>
+                </ol>
+              </CardContent>
+            </Card>
+
+            {/* ESTADÍSTICAS GENERALES */}
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Últimas abejas */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Últimas Abejas Registradas</CardTitle>
+              {/* Estadísticas Elite */}
+              <Card className="border-purple-200">
+                <CardHeader className="bg-purple-50">
+                  <CardTitle className="flex items-center gap-2 text-purple-700">
+                    <Star className="w-5 h-5" />
+                    Códigos Elite (100)
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {stats?.recent.bees.map((bee) => (
-                      <div key={bee.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                        <div>
-                          <p className="font-medium">{bee.user.name}</p>
-                          <p className="text-sm text-gray-500">{bee.affiliationNumber}</p>
-                        </div>
-                        <p className="text-xs text-gray-400">
-                          {new Date(bee.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    ))}
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-3 gap-4 text-center mb-4">
+                    <div className="p-2 bg-gray-100 rounded">
+                      <p className="text-2xl font-bold text-purple-600">{codesData?.elite.stats.total || 0}</p>
+                      <p className="text-xs text-gray-500">Total</p>
+                    </div>
+                    <div className="p-2 bg-green-50 rounded">
+                      <p className="text-2xl font-bold text-green-600">{codesData?.elite.stats.available || 0}</p>
+                      <p className="text-xs text-gray-500">Disponibles</p>
+                    </div>
+                    <div className="p-2 bg-amber-50 rounded">
+                      <p className="text-2xl font-bold text-amber-600">{codesData?.elite.stats.assigned || 0}</p>
+                      <p className="text-xs text-gray-500">Asignados</p>
+                    </div>
                   </div>
+                  
+                  {codesData?.elite.stats.total === 0 && (
+                    <Button 
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      onClick={() => handleInitCodes('elite')}
+                      disabled={initLoading}
+                    >
+                      {initLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Star className="w-4 h-4 mr-2" />}
+                      Inicializar 100 Códigos Elite
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Métricas */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Métricas del Sistema</CardTitle>
+              {/* Estadísticas Fundador */}
+              <Card className="border-blue-200">
+                <CardHeader className="bg-blue-50">
+                  <CardTitle className="flex items-center gap-2 text-blue-700">
+                    <Award className="w-5 h-5" />
+                    Códigos Fundador (500)
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-amber-50 rounded">
-                    <span>Códigos de regalo activados</span>
-                    <Badge className="bg-amber-500">
-                      {stats?.counts.activatedGiftCodes}/{stats?.counts.totalGiftCodes}
-                    </Badge>
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-3 gap-4 text-center mb-4">
+                    <div className="p-2 bg-gray-100 rounded">
+                      <p className="text-2xl font-bold text-blue-600">{codesData?.founder.stats.total || 0}</p>
+                      <p className="text-xs text-gray-500">Total</p>
+                    </div>
+                    <div className="p-2 bg-green-50 rounded">
+                      <p className="text-2xl font-bold text-green-600">{codesData?.founder.stats.available || 0}</p>
+                      <p className="text-xs text-gray-500">Disponibles</p>
+                    </div>
+                    <div className="p-2 bg-amber-50 rounded">
+                      <p className="text-2xl font-bold text-amber-600">{codesData?.founder.stats.assigned || 0}</p>
+                      <p className="text-xs text-gray-500">Asignados</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-green-50 rounded">
-                    <span>Sorteos completados</span>
-                    <Badge className="bg-green-500">
-                      {stats?.counts.completedRaffles}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-orange-50 rounded">
-                    <span>Pagos pendientes</span>
-                    <Badge className="bg-orange-500">
-                      {stats?.counts.pendingPayments}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-purple-50 rounded">
-                    <span>Premios pagados</span>
-                    <Badge className="bg-purple-500">
-                      ${stats?.financial.totalPrizesPaid.toFixed(2)}
-                    </Badge>
-                  </div>
+                  
+                  {codesData?.founder.stats.total === 0 && (
+                    <Button 
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      onClick={() => handleInitCodes('founder')}
+                      disabled={initLoading}
+                    >
+                      {initLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Award className="w-4 h-4 mr-2" />}
+                      Inicializar 500 Códigos Fundador
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             </div>
+
+            {/* FORMULARIO ASIGNAR ELITE */}
+            <Card className="border-purple-300">
+              <CardHeader className="bg-purple-100">
+                <CardTitle className="flex items-center gap-2 text-purple-800">
+                  <Star className="w-5 h-5" />
+                  ⭐ Asignar Código Elite
+                </CardTitle>
+                <CardDescription>
+                  Formato: ELITE-001 hasta ELITE-100 | El socio recibirá 1 acción Elite
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="grid md:grid-cols-4 gap-4">
+                  <div>
+                    <Label className="font-semibold">Código Elite</Label>
+                    <Input 
+                      value={eliteCode}
+                      onChange={(e) => setEliteCode(e.target.value.toUpperCase())}
+                      placeholder="ELITE-001"
+                      className="text-lg font-mono"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="font-semibold">Nombre del Socio Elite</Label>
+                    <Input 
+                      value={eliteName}
+                      onChange={(e) => setEliteName(e.target.value)}
+                      placeholder="Ej: Juan Pérez"
+                      className="text-lg"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-lg py-6"
+                      onClick={handleAssignEliteCode}
+                      disabled={assigning}
+                    >
+                      {assigning ? <RefreshCw className="w-5 h-5 mr-2 animate-spin" /> : <Send className="w-5 h-5 mr-2" />}
+                      ASIGNAR ELITE
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* FORMULARIO ASIGNAR FUNDADOR */}
+            <Card className="border-blue-300">
+              <CardHeader className="bg-blue-100">
+                <CardTitle className="flex items-center gap-2 text-blue-800">
+                  <Award className="w-5 h-5" />
+                  🏅 Asignar Código Fundador
+                </CardTitle>
+                <CardDescription>
+                  Becas: FUND-000-001 al 200 | Comerciales: FUND-XXX-YYY | El socio recibe 50 acciones + 50 códigos MIEL
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="grid md:grid-cols-4 gap-4">
+                  <div>
+                    <Label className="font-semibold">Código Fundador</Label>
+                    <Input 
+                      value={founderCode}
+                      onChange={(e) => setFounderCode(e.target.value.toUpperCase())}
+                      placeholder="FUND-000-001"
+                      className="text-lg font-mono"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="font-semibold">Nombre del Socio Fundador</Label>
+                    <Input 
+                      value={founderName}
+                      onChange={(e) => setFounderName(e.target.value)}
+                      placeholder="Ej: María García"
+                      className="text-lg"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
+                      onClick={handleAssignFounderCode}
+                      disabled={assigning}
+                    >
+                      {assigning ? <RefreshCw className="w-5 h-5 mr-2 animate-spin" /> : <Send className="w-5 h-5 mr-2" />}
+                      ASIGNAR FUNDADOR
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* GRID DE CÓDIGOS ELITE */}
+            {codesData && codesData.elite.codes.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>⭐ Códigos Elite - Estado</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Input 
+                        value={searchElite}
+                        onChange={(e) => setSearchElite(e.target.value)}
+                        placeholder="Buscar código o nombre..."
+                        className="w-64"
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-5 md:grid-cols-10 lg:grid-cols-20 gap-1">
+                    {filteredEliteCodes.map((code) => (
+                      <div 
+                        key={code.id}
+                        className={`p-2 rounded text-center text-xs font-mono cursor-pointer transition-all hover:scale-105 ${
+                          code.status === 'available' 
+                            ? 'bg-green-100 hover:bg-green-200 text-green-700 border border-green-300' 
+                            : 'bg-amber-100 hover:bg-amber-200 text-amber-700 border border-amber-300'
+                        }`}
+                        title={`${code.code}\n${code.status === 'assigned' ? `Asignado a: ${code.assigned_to_name}` : 'Disponible'}`}
+                        onClick={() => code.status === 'available' && setEliteCode(code.code)}
+                      >
+                        {code.elite_number.toString().padStart(3, '0')}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-4 mt-4 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
+                      <span>Disponible (click para seleccionar)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-amber-100 border border-amber-300 rounded"></div>
+                      <span>Asignado</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* CÓDIGOS FUNDADOR DE BECAS */}
+            {becasCodes.length > 0 && (
+              <Card className="border-amber-200">
+                <CardHeader className="bg-amber-50">
+                  <CardTitle className="text-amber-800">
+                    📚 Fundadores de Becas (Elite 000 - El Club) - {becasCodes.filter(c => c.status === 'available').length} disponibles de {becasCodes.length}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-5 md:grid-cols-10 lg:grid-cols-20 gap-1 max-h-60 overflow-y-auto">
+                    {becasCodes.slice(0, 200).map((code) => (
+                      <div 
+                        key={code.id}
+                        className={`p-2 rounded text-center text-xs font-mono cursor-pointer transition-all hover:scale-105 ${
+                          code.status === 'available' 
+                            ? 'bg-green-100 hover:bg-green-200 text-green-700 border border-green-300' 
+                            : 'bg-amber-100 hover:bg-amber-200 text-amber-700 border border-amber-300'
+                        }`}
+                        title={`${code.code}\nADN: ${code.adn_prefix}\n${code.status === 'assigned' ? `Asignado a: ${code.assigned_to_name}` : 'Disponible'}`}
+                        onClick={() => code.status === 'available' && setFounderCode(code.code)}
+                      >
+                        {code.founder_number.toString().padStart(3, '0')}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Click en un código verde para seleccionarlo automáticamente</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* CÓDIGOS FUNDADOR COMERCIALES */}
+            {comercialesCodes.length > 0 && (
+              <Card className="border-blue-200">
+                <CardHeader className="bg-blue-50">
+                  <CardTitle className="text-blue-800">
+                    💼 Fundadores Comerciales (Elite 001-100) - {comercialesCodes.filter(c => c.status === 'available').length} disponibles de {comercialesCodes.length}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="mb-4">
+                    <Input 
+                      value={searchFounder}
+                      onChange={(e) => setSearchFounder(e.target.value)}
+                      placeholder="Buscar por código o nombre..."
+                      className="w-64"
+                    />
+                  </div>
+                  
+                  {/* Tabla de códigos */}
+                  <div className="overflow-x-auto max-h-96">
+                    <table className="w-full text-sm">
+                      <thead className="bg-blue-100 sticky top-0">
+                        <tr>
+                          <th className="p-2 text-left">Código</th>
+                          <th className="p-2 text-left">ADN</th>
+                          <th className="p-2 text-left">Estado</th>
+                          <th className="p-2 text-left">Asignado a</th>
+                          <th className="p-2 text-left">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {comercialesCodes.slice(0, 100).map((code) => (
+                          <tr key={code.id} className="border-b hover:bg-gray-50">
+                            <td className="p-2 font-mono">{code.code}</td>
+                            <td className="p-2 font-mono text-blue-600">{code.adn_prefix}</td>
+                            <td className="p-2">
+                              <Badge className={code.status === 'available' ? 'bg-green-500' : 'bg-amber-500'}>
+                                {code.status === 'available' ? 'Disponible' : 'Asignado'}
+                              </Badge>
+                            </td>
+                            <td className="p-2">{code.assigned_to_name || '-'}</td>
+                            <td className="p-2">
+                              {code.status === 'available' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => setFounderCode(code.code)}
+                                >
+                                  Seleccionar
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* CÓDIGOS ASIGNADOS RECIENTEMENTE */}
+            {codesData && (codesData.elite.stats.assigned > 0 || codesData.founder.stats.assigned > 0) && (
+              <Card className="border-green-200">
+                <CardHeader className="bg-green-50">
+                  <CardTitle className="text-green-800">✅ Códigos Asignados Recientemente</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="p-2 text-left">Tipo</th>
+                          <th className="p-2 text-left">Código</th>
+                          <th className="p-2 text-left">ADN/Número</th>
+                          <th className="p-2 text-left">Asignado a</th>
+                          <th className="p-2 text-left">Fecha</th>
+                          <th className="p-2 text-left">Copiar</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {codesData.elite.codes.filter(c => c.status === 'assigned').slice(0, 5).map((code) => (
+                          <tr key={code.id} className="border-b bg-purple-50">
+                            <td className="p-2"><Badge className="bg-purple-500">Elite</Badge></td>
+                            <td className="p-2 font-mono">{code.code}</td>
+                            <td className="p-2">#{code.elite_number}</td>
+                            <td className="p-2 font-semibold">{code.assigned_to_name}</td>
+                            <td className="p-2 text-gray-500">{code.assigned_at ? new Date(code.assigned_at).toLocaleDateString() : '-'}</td>
+                            <td className="p-2">
+                              <Button size="sm" variant="ghost" onClick={() => copyToClipboard(code.code)}>
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                        {codesData.founder.codes.filter(c => c.status === 'assigned').slice(0, 10).map((code) => (
+                          <tr key={code.id} className="border-b bg-blue-50">
+                            <td className="p-2"><Badge className="bg-blue-500">Fundador</Badge></td>
+                            <td className="p-2 font-mono">{code.code}</td>
+                            <td className="p-2 font-mono text-blue-600">{code.adn_prefix}</td>
+                            <td className="p-2 font-semibold">{code.assigned_to_name}</td>
+                            <td className="p-2 text-gray-500">{code.assigned_at ? new Date(code.assigned_at).toLocaleDateString() : '-'}</td>
+                            <td className="p-2">
+                              <Button size="sm" variant="ghost" onClick={() => copyToClipboard(code.code)}>
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
           </TabsContent>
 
-          {/* Tab: Abejas */}
+          {/* Tab: Socios */}
           <TabsContent value="abejas">
             <Card>
               <CardHeader>
-                <CardTitle>Gestión de Abejas</CardTitle>
+                <CardTitle>Gestión de Socios</CardTitle>
                 <CardDescription>
-                  Total: {bees.length} abejas registradas
+                  Total: {bees.length} socios registrados
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -737,312 +1127,64 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          {/* Tab: Códigos */}
-          <TabsContent value="codigos" className="space-y-6">
-            {/* Estadísticas de códigos */}
+          {/* Tab: Resumen */}
+          <TabsContent value="resumen" className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
-              <Card className="border-purple-200">
-                <CardHeader className="bg-purple-50">
-                  <CardTitle className="flex items-center gap-2 text-purple-700">
-                    <Star className="w-5 h-5" />
-                    Códigos Elite
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="grid grid-cols-3 gap-4 text-center mb-4">
-                    <div>
-                      <p className="text-2xl font-bold text-purple-600">{codesData?.elite.stats.total || 0}</p>
-                      <p className="text-xs text-gray-500">Total</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-green-600">{codesData?.elite.stats.available || 0}</p>
-                      <p className="text-xs text-gray-500">Disponibles</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-amber-600">{codesData?.elite.stats.assigned || 0}</p>
-                      <p className="text-xs text-gray-500">Asignados</p>
-                    </div>
-                  </div>
-                  
-                  {codesData?.elite.stats.total === 0 && (
-                    <Button 
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                      onClick={() => handleInitCodes('elite')}
-                      disabled={initLoading}
-                    >
-                      {initLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : null}
-                      Inicializar 100 Códigos Elite
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="border-blue-200">
-                <CardHeader className="bg-blue-50">
-                  <CardTitle className="flex items-center gap-2 text-blue-700">
-                    <Award className="w-5 h-5" />
-                    Códigos Fundador
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="grid grid-cols-3 gap-4 text-center mb-4">
-                    <div>
-                      <p className="text-2xl font-bold text-blue-600">{codesData?.founder.stats.total || 0}</p>
-                      <p className="text-xs text-gray-500">Total</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-green-600">{codesData?.founder.stats.available || 0}</p>
-                      <p className="text-xs text-gray-500">Disponibles</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-amber-600">{codesData?.founder.stats.assigned || 0}</p>
-                      <p className="text-xs text-gray-500">Asignados</p>
-                    </div>
-                  </div>
-                  
-                  {codesData?.founder.stats.total === 0 && (
-                    <Button 
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      onClick={() => handleInitCodes('founder')}
-                      disabled={initLoading}
-                    >
-                      {initLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : null}
-                      Inicializar 500 Códigos Fundador
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Asignar códigos Elite */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-purple-500" />
-                  Asignar Código Elite
-                </CardTitle>
-                <CardDescription>
-                  Asigna un código Elite a un socio especial. El código tiene formato ELITE-XXX (001-100)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Código Elite</Label>
-                    <Input 
-                      value={assignCode}
-                      onChange={(e) => setAssignCode(e.target.value.toUpperCase())}
-                      placeholder="ELITE-001"
-                    />
-                  </div>
-                  <div>
-                    <Label>Nombre del Asignatario</Label>
-                    <Input 
-                      value={assignToName}
-                      onChange={(e) => setAssignToName(e.target.value)}
-                      placeholder="Juan Pérez"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <Button 
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                      onClick={() => handleAssignCode('elite')}
-                      disabled={assigning}
-                    >
-                      {assigning ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                      Asignar Elite
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Asignar códigos Fundador */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="w-5 h-5 text-blue-500" />
-                  Asignar Código Fundador
-                </CardTitle>
-                <CardDescription>
-                  Asigna un código Fundador. Formato: FUND-XXX-YYY (XXX=Elite, YYY=Fundador)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Código Fundador</Label>
-                    <Input 
-                      value={assignCode}
-                      onChange={(e) => setAssignCode(e.target.value.toUpperCase())}
-                      placeholder="FUND-001-201"
-                    />
-                  </div>
-                  <div>
-                    <Label>Nombre del Asignatario</Label>
-                    <Input 
-                      value={assignToName}
-                      onChange={(e) => setAssignToName(e.target.value)}
-                      placeholder="María García"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <Button 
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      onClick={() => handleAssignCode('founder')}
-                      disabled={assigning}
-                    >
-                      {assigning ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                      Asignar Fundador
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Lista de códigos Elite */}
-            {codesData && codesData.elite.codes.length > 0 && (
+              {/* Últimas abejas */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Códigos Elite - Estado</CardTitle>
-                  <CardDescription>
-                    Vista de todos los códigos Elite y su estado
-                  </CardDescription>
+                  <CardTitle>Últimas Abejas Registradas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-5 md:grid-cols-10 lg:grid-cols-20 gap-1">
-                    {codesData.elite.codes.map((code) => (
-                      <div 
-                        key={code.id}
-                        className={`p-2 rounded text-center text-xs font-mono cursor-pointer transition-colors ${
-                          code.status === 'available' 
-                            ? 'bg-green-100 hover:bg-green-200 text-green-700' 
-                            : 'bg-amber-100 hover:bg-amber-200 text-amber-700'
-                        }`}
-                        title={`${code.code}\n${code.status === 'assigned' ? `Asignado a: ${code.assigned_to_name}` : 'Disponible'}`}
-                      >
-                        {code.elite_number.toString().padStart(3, '0')}
+                  <div className="space-y-3">
+                    {stats?.recent.bees.map((bee) => (
+                      <div key={bee.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                        <div>
+                          <p className="font-medium">{bee.user.name}</p>
+                          <p className="text-sm text-gray-500">{bee.affiliationNumber}</p>
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          {new Date(bee.createdAt).toLocaleDateString()}
+                        </p>
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-4 mt-4 text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-green-100 rounded"></div>
-                      <span>Disponible</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-amber-100 rounded"></div>
-                      <span>Asignado</span>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
-            )}
 
-            {/* Lista de códigos Fundador por categoría */}
-            {codesData && codesData.founder.codes.length > 0 && (
+              {/* Métricas */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Códigos Fundador - Estado</CardTitle>
-                  <CardDescription>
-                    Fundadores de Becas (Elite 000) y Comerciales (Elite 001-100)
-                  </CardDescription>
+                  <CardTitle>Métricas del Sistema</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  {/* Resumen por categoría */}
-                  <div className="grid md:grid-cols-2 gap-4 mb-6">
-                    <div className="p-4 bg-amber-50 rounded-lg">
-                      <h4 className="font-semibold text-amber-700 mb-2">📚 Fundadores de Becas (Elite 000)</h4>
-                      <div className="flex justify-between">
-                        <span>Total: <strong>{codesData.founder.stats.byElite.becas}</strong></span>
-                        <span>Disponibles: <strong className="text-green-600">{codesData.founder.stats.byElite.becasAvailable}</strong></span>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-semibold text-blue-700 mb-2">💼 Fundadores Comerciales</h4>
-                      <div className="flex justify-between">
-                        <span>Total: <strong>{codesData.founder.stats.byElite.comerciales}</strong></span>
-                        <span>Disponibles: <strong className="text-green-600">{codesData.founder.stats.byElite.comercialesAvailable}</strong></span>
-                      </div>
-                    </div>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-amber-50 rounded">
+                    <span>Códigos de regalo activados</span>
+                    <Badge className="bg-amber-500">
+                      {stats?.counts.activatedGiftCodes}/{stats?.counts.totalGiftCodes}
+                    </Badge>
                   </div>
-
-                  {/* Tabla de códigos asignados */}
-                  {codesData.founder.codes.filter(c => c.status === 'assigned').length > 0 && (
-                    <div>
-                      <h4 className="font-semibold mb-2">Códigos Asignados Recientemente:</h4>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b">
-                              <th className="text-left p-2">Código</th>
-                              <th className="text-left p-2">ADN</th>
-                              <th className="text-left p-2">Asignado a</th>
-                              <th className="text-left p-2">Fecha</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {codesData.founder.codes
-                              .filter(c => c.status === 'assigned')
-                              .slice(0, 10)
-                              .map((code) => (
-                                <tr key={code.id} className="border-b">
-                                  <td className="p-2 font-mono">{code.code}</td>
-                                  <td className="p-2 font-mono text-blue-600">{code.adn_prefix}</td>
-                                  <td className="p-2">{code.assigned_to_name}</td>
-                                  <td className="p-2 text-gray-500">
-                                    {code.assigned_at ? new Date(code.assigned_at).toLocaleDateString() : '-'}
-                                  </td>
-                                </tr>
-                              ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center p-3 bg-green-50 rounded">
+                    <span>Sorteos completados</span>
+                    <Badge className="bg-green-500">
+                      {stats?.counts.completedRaffles}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-orange-50 rounded">
+                    <span>Pagos pendientes</span>
+                    <Badge className="bg-orange-500">
+                      {stats?.counts.pendingPayments}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-purple-50 rounded">
+                    <span>Premios pagados</span>
+                    <Badge className="bg-purple-500">
+                      ${stats?.financial.totalPrizesPaid.toFixed(2)}
+                    </Badge>
+                  </div>
                 </CardContent>
               </Card>
-            )}
-
-            {/* Información del sistema */}
-            <Card>
-              <CardHeader>
-                <CardTitle>ℹ️ Información del Sistema de Códigos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <h4 className="font-semibold text-purple-700 mb-2">⭐ Códigos Elite (100 cupos)</h4>
-                    <ul className="list-disc list-inside text-purple-600 space-y-1">
-                      <li>La admin asigna códigos Elite a socios especiales</li>
-                      <li>Formato: ELITE-001 hasta ELITE-100</li>
-                      <li>Beneficio: 1 acción Elite + número de afiliación XXX-000-Cedula</li>
-                      <li>Cada Elite puede tener hasta 10 Fundadores asociados</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-semibold text-blue-700 mb-2">🏅 Códigos Fundador (500 cupos)</h4>
-                    <ul className="list-disc list-inside text-blue-600 space-y-1">
-                      <li><strong>Fundadores de Becas (200):</strong> FUND-000-001 a FUND-000-200</li>
-                      <li><strong>Fundadores Comerciales (300):</strong> FUND-XXX-YYY</li>
-                      <li>Beneficio: 50 acciones + 50 códigos MIEL con ADN</li>
-                      <li>El ADN determina la red de referidos: Elite-Fundador</li>
-                    </ul>
-                  </div>
-
-                  <div className="p-4 bg-amber-50 rounded-lg">
-                    <h4 className="font-semibold text-amber-700 mb-2">🐝 Socios Formales</h4>
-                    <ul className="list-disc list-inside text-amber-600 space-y-1">
-                      <li>Se registran con código MIEL (invitación de un Fundador)</li>
-                      <li>Adquieren el ADN del Fundador que los invitó</li>
-                      <li>Formato afiliación: XXX-YYY-Cedula (ADN del invitador)</li>
-                      <li>Pago de activación: $2 + $2/mes</li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
