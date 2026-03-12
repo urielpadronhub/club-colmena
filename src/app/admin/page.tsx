@@ -20,7 +20,9 @@ import {
   Calendar,
   Sparkles,
   CheckCircle,
-  XCircle
+  XCircle,
+  Star,
+  Award
 } from 'lucide-react'
 
 interface Stats {
@@ -355,6 +357,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="resumen">Resumen</TabsTrigger>
             <TabsTrigger value="abejas">Abejas</TabsTrigger>
             <TabsTrigger value="sorteos">Sorteos</TabsTrigger>
+            <TabsTrigger value="codigos">Codigos</TabsTrigger>
           </TabsList>
 
           {/* Tab: Resumen */}
@@ -611,6 +614,117 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab: Códigos */}
+          <TabsContent value="codigos" className="space-y-6">
+            {/* Códigos Elite */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="w-5 h-5 text-purple-500" />
+                  Códigos Elite (100 cupos)
+                </CardTitle>
+                <CardDescription>
+                  Asigna códigos Elite a socios especiales. Cada Elite puede tener hasta 10 Fundadores.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-2">
+                  {Array.from({ length: 100 }, (_, i) => {
+                    const num = (i + 1).toString().padStart(3, '0')
+                    return (
+                      <div 
+                        key={num}
+                        className="p-2 bg-purple-100 rounded text-center text-sm font-mono hover:bg-purple-200 cursor-pointer"
+                        title={`ELITE-${num}`}
+                      >
+                        {num}
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="mt-4 p-4 bg-purple-50 rounded-lg">
+                  <p className="text-sm text-purple-700">
+                    <strong>Formato:</strong> ELITE-001 hasta ELITE-100
+                  </p>
+                  <p className="text-sm text-purple-600 mt-1">
+                    Al registrarse con un código Elite, el socio recibe 1 acción Elite y número de afiliación: XXX-000-Cedula
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Códigos Fundador */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="w-5 h-5 text-blue-500" />
+                  Códigos Fundador (500 cupos)
+                </CardTitle>
+                <CardDescription>
+                  Fundadores de Becas (Elite 000) y Fundadores Comerciales (Elite 001-100)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Fundadores de Becas */}
+                  <div>
+                    <h4 className="font-semibold text-amber-700 mb-2">📚 Fundadores de Becas (Elite 000) - 200 cupos</h4>
+                    <div className="grid grid-cols-4 md:grid-cols-8 lg:grid-cols-10 gap-1">
+                      {Array.from({ length: 20 }, (_, i) => {
+                        const num = ((i + 1) * 10).toString().padStart(3, '0')
+                        return (
+                          <div 
+                            key={num}
+                            className="p-1 bg-amber-100 rounded text-center text-xs font-mono hover:bg-amber-200 cursor-pointer"
+                          >
+                            000-{num}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">FUND-000-001 hasta FUND-000-200</p>
+                  </div>
+
+                  {/* Fundadores Comerciales */}
+                  <div>
+                    <h4 className="font-semibold text-blue-700 mb-2">💼 Fundadores Comerciales (Elite 001-100) - 300 cupos</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      3 fundadores por cada Elite. Formato: FUND-XXX-YYY
+                    </p>
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-blue-700">
+                        <strong>Ejemplo:</strong> FUND-025-201 pertenece al Elite #025
+                      </p>
+                      <p className="text-sm text-blue-600 mt-1">
+                        Al registrarse, el socio recibe 50 acciones y 50 códigos MIEL con su ADN: 025-201-________
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Generar códigos */}
+            <Card>
+              <CardHeader>
+                <CardTitle>⚙️ Inicializar Códigos en Sistema</CardTitle>
+                <CardDescription>
+                  Ejecutar después de crear las tablas en Supabase
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-700">
+                    <strong>Importante:</strong> Primero ejecuta el SQL en Supabase para crear las tablas EliteCode y FounderCode.
+                  </p>
+                  <p className="text-sm text-yellow-600 mt-1">
+                    El archivo SQL está en: /download/crear_tablas_codigos.sql
+                  </p>
                 </div>
               </CardContent>
             </Card>
