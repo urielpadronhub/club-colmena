@@ -24,7 +24,8 @@ import {
   Check,
   LogOut,
   Settings,
-  Bell
+  Bell,
+  IdCard
 } from 'lucide-react'
 
 interface UserData {
@@ -267,6 +268,14 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Button 
+              variant="ghost" 
+              className="text-white hover:bg-amber-600"
+              onClick={() => router.push('/credential')}
+              title="Mi Credencial"
+            >
+              <IdCard className="w-5 h-5" />
+            </Button>
             <Button variant="ghost" className="text-white hover:bg-amber-600">
               <Bell className="w-5 h-5" />
             </Button>
@@ -307,6 +316,15 @@ export default function Dashboard() {
                   Carga Accionaria: <span className="font-bold text-white">{beeData.totalActions}</span>
                 </p>
               </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-amber-400/30">
+              <Button 
+                className="w-full bg-white text-amber-600 hover:bg-amber-50"
+                onClick={() => router.push('/credential')}
+              >
+                <IdCard className="w-5 h-5 mr-2" />
+                Ver Mi Credencial Digital
+              </Button>
             </div>
           </CardContent>
         </Card>

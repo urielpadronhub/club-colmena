@@ -1,10 +1,87 @@
-# 🚀 Welcome to Z.ai Code Scaffold
+# 🐝 El Club de La Colmena
 
-A modern, production-ready web application scaffold powered by cutting-edge technologies, designed to accelerate your development with [Z.ai](https://chat.z.ai)'s AI-powered coding assistance.
+Sistema de gestión de donadores para una Asociación Civil sin fines de lucro que brinda apoyo educativo a niños y jóvenes a través de becas escolares.
+
+## ✨ Características
+
+- **Sistema de 4 niveles de socios**: Presidente, Elite, Fundador, Formal
+- **Sistema de ADN**: Red de referidos con patrocinadores Elite y Fundador
+- **Códigos de regalo**: Sistema viral de invitaciones
+- **Dashboard del socio**: Visualización de acciones, códigos y red
+- **Bot de WhatsApp**: Interacción automatizada con socios
+- **Sorteos semanales**: Participación según acciones acumuladas
+
+## 🚀 Quick Start
+
+```bash
+# Install dependencies
+bun install
+
+# Start development server
+bun run dev
+
+# Build for production
+bun run build
+
+# Start production server
+bun start
+```
+
+Open [http://localhost:3000](http://localhost:3000) to see your application running.
+
+## 🤖 Bot de WhatsApp
+
+El bot de WhatsApp permite interactuar con los socios de forma automatizada.
+
+### Iniciar el Bot
+
+```bash
+# Iniciar el bot de WhatsApp
+bun run bot
+
+# Modo desarrollo (reinicia automáticamente)
+bun run bot:dev
+```
+
+### Configuración Inicial
+
+1. Ejecuta `bun run bot`
+2. Escanea el código QR con tu WhatsApp:
+   - Abre WhatsApp en tu teléfono
+   - Ve a Configuración > Dispositivos vinculados
+   - Escanea el código QR que aparece en la terminal
+3. ¡El bot está listo para responder mensajes!
+
+### Comandos del Bot
+
+Los usuarios pueden enviar estos comandos al bot:
+
+| Comando | Descripción |
+|---------|-------------|
+| HOLA | Mensaje de bienvenida |
+| INFO | Información del club y niveles de socios |
+| SALDO | Consultar cuenta y acciones |
+| CODIGOS | Ver códigos de invitación disponibles |
+| ADN | Ver red de referidos |
+| ACTIVAR | Cómo activar la cuenta |
+| AYUDA | Lista de comandos |
+| CONTACTO | Información de contacto |
+
+### Estructura del Bot
+
+```
+src/lib/whatsapp-bot.ts  # Lógica de procesamiento de mensajes
+bot.ts                   # Cliente de WhatsApp (whatsapp-web.js)
+types/whatsapp-webjs.d.ts # Tipos de TypeScript
+```
+
+### Notas Importantes
+
+- El bot guarda los mensajes en la tabla `WhatsAppLog` de la base de datos
+- La sesión se guarda en `whatsapp-session/` para no tener que escanear el QR cada vez
+- Si hay problemas de autenticación, elimina la carpeta `whatsapp-session/` y reinicia
 
 ## ✨ Technology Stack
-
-This scaffold provides a robust foundation built with:
 
 ### 🎯 Core Framework
 - **⚡ Next.js 16** - The React framework for production with App Router

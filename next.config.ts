@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  allowedDevOrigins: [
+    'sensor-genealogy-regulation-exact.trycloudflare.com',
+  ],
 };
 
 export default nextConfig;

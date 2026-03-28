@@ -1,0 +1,115 @@
+═══════════════════════════════════════════════════════════════════
+                🐝 EL CLUB DE LA COLMENA - INSTRUCCIONES 🐝
+═══════════════════════════════════════════════════════════════════
+
+Este proyecto es un sistema de gestión de donadores para una 
+organización sin fines de lucro que proporciona becas educativas.
+
+═══════════════════════════════════════════════════════════════════
+                    ¿CÓMO USAR EL SITIO WEB?
+═══════════════════════════════════════════════════════════════════
+
+PASO 1: Descarga el archivo "club-colmena.zip"
+
+PASO 2: Descomprime el archivo (clic derecho → Extraer todo)
+
+PASO 3: Necesitas tener instalado Node.js en tu computadora
+        - Descárgalo gratis de: https://nodejs.org
+        - Instálalo con las opciones por defecto
+
+PASO 4: Abre una terminal (Símbolo del sistema o PowerShell)
+        - Escribe: cd Downloads/my-project (o donde lo descomprimiste)
+        - Escribe: npm install
+        - Espera a que termine
+
+PASO 5: Ejecuta el servidor
+        - Escribe: npm run dev
+        - Verás algo como: "Local: http://localhost:3000"
+
+PASO 6: Abre tu navegador (Chrome, Edge, Firefox)
+        - Ve a: http://localhost:3000
+
+═══════════════════════════════════════════════════════════════════
+                    DATOS DE ACCESO
+═══════════════════════════════════════════════════════════════════
+
+🔐 ENTRAR COMO ADMINISTRADOR:
+   Email: admin@colmena.org
+   Contraseña: admin123
+
+🔐 ENTRAR COMO ABEJA (usuario):
+   Debes registrarte primero con el botón "¡Únete como Abeja!"
+
+═══════════════════════════════════════════════════════════════════
+                    DATOS BANCARIOS DE LA ORGANIZACIÓN
+═══════════════════════════════════════════════════════════════════
+
+Estos son los datos que aparecen en el sitio para recibir pagos:
+
+👤 Titular: Sara Mestre
+🏦 Banco: Banco del Caribe
+📱 Teléfono Pago Móvil: 0414 0379406
+🆔 RIF: J297354239
+💰 Monto de activación: $2 USD (a tasa BCV)
+
+═══════════════════════════════════════════════════════════════════
+                    ¿QUÉ PUEDO HACER EN EL SITIO?
+═══════════════════════════════════════════════════════════════════
+
+COMO ABEJA (usuario normal):
+✅ Registrarte en el sistema
+✅ Ver tu número de afiliación
+✅ Subir comprobante de pago de activación
+✅ Ver tus acciones (tickets para sorteos)
+✅ Compartir códigos de regalo con amigos
+✅ Ver historial de pagos
+✅ Actualizar tus datos bancarios para recibir premios
+
+COMO ADMINISTRADOR:
+✅ Ver todas las abejas registradas
+✅ Aprobar/rechazar pagos pendientes
+✅ Crear sorteos (semanales, mensuales, etc.)
+✅ Ejecutar sorteos y elegir ganadores
+✅ Ver estadísticas del sistema
+
+═══════════════════════════════════════════════════════════════════
+                    SISTEMA DE ACCIONES
+═══════════════════════════════════════════════════════════════════
+
+Cada abeja recibe:
+• 3 códigos de regalo al activarse (MIEL-XXXXXXXX)
+• 1 acción por cada mes pagado
+• 1 acción bonus por cada referido que se active
+
+Los códigos de regalo sirven para invitar amigos.
+Cuando un amigo usa tu código, tú recibes +1 acción bonus.
+
+═══════════════════════════════════════════════════════════════════
+                    SORTEOS
+═══════════════════════════════════════════════════════════════════
+
+📅 SEMANALES: $15 USD (múltiples ganadores)
+📅 MENSALES: $75 USD (5 ganadores)
+🏆 SEMESTRALES: $400 USD (grandes premios)
+✨ ANUAL: $1,500 USD (¡gran premio!)
+
+Los premios se pagan por Pago Móvil directamente a la cuenta
+del ganador.
+
+═══════════════════════════════════════════════════════════════════
+                    ¿NECESITAS AYUDA?
+═══════════════════════════════════════════════════════════════════
+
+Si tienes problemas:
+1. Asegúrate de tener Node.js instalado
+2. Intenta con un navegador diferente
+3. Desactiva temporalmente tu antivirus
+
+═══════════════════════════════════════════════════════════════════
+                    ARCHIVOS DEL PROYECTO
+═══════════════════════════════════════════════════════════════════
+
+📁 club-colmena.zip → Todo el proyecto (descomprime y ejecuta)
+📁 club-colmena-preview.html → Vista previa de la página principal
+
+═══════════════════════════════════════════════════════════════════
