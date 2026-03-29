@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { QRCodeSVG } from 'qrcode.react'
 import { Download, Share2, ArrowLeft, CheckCircle } from 'lucide-react'
+import { domToPng } from 'modern-screenshot'
 
 interface UserData {
   id: string
@@ -122,34 +123,74 @@ export default function CredentialPage() {
     setDownloadError(null)
     
     try {
-      // Importar html2canvas dinámicamente
-      const html2canvasModule = await import('html2canvas')
-      const html2canvas = html2canvasModule.default
-      
-      // Capturar el elemento
-      const canvas = await html2canvas(credentialRef.current, {
+      // Usar modern-screenshot para capturar
+      const dataUrl = await domToPng(credentialRef.current, {
         scale: 2,
         backgroundColor: '#ffffff',
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        // Ignorar elementos problemáticos
-        ignoreElements: (element) => {
-          return element.tagName === 'IFRAME'
-        }
       })
       
       // Crear enlace de descarga
       const link = document.createElement('a')
       link.download = `credencial-${beeData.affiliationNumber}.png`
-      link.href = canvas.toDataURL('image/png', 1.0)
+      link.href = dataUrl
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       
     } catch (error) {
       console.error('Error descargando:', error)
-      setDownloadError('Error al descargar. Intenta con el botón derecho > Guardar imagen.')
+      setDownloadError('Error al descargar. Intenta hacer captura de pantalla.')
+      
+      // Fallback: intentar con el método nativo
+      try {
+        if (credentialRef.current) {
+          // Crear un canvas alternativo
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            canvas.width = 400
+            canvas.height = 600
+            
+            // Fondo blanco
+            ctx.fillStyle = '#ffffff'
+            ctx.fillRect(0, 0, canvas.width, canvas.height)
+            
+            // Texto básico
+            ctx.fillStyle = '#d97706'
+            ctx.font = 'bold 24px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText('EL CLUB DE LA COLMENA', 200, 50)
+            
+            ctx.fillStyle = '#1f2937'
+            ctx.font = 'bold 20px sans-serif'
+            ctx.fillText(beeData.user.name, 200, 150)
+            
+            ctx.fillStyle = '#d97706'
+            ctx.font = 'bold 28px monospace'
+            ctx.fillText(beeData.affiliationNumber, 200, 250)
+            
+            ctx.fillStyle = '#6b7280'
+            ctx.font = '14px sans-serif'
+            ctx.fillText(`Tipo: ${getMemberBadge(beeData.memberType)}`, 200, 320)
+            ctx.fillText(`Acciones: ${beeData.totalActions}`, 200, 350)
+            ctx.fillText(`Miembro desde: ${formatDate(beeData.createdAt)}`, 200, 380)
+            
+            ctx.fillStyle = '#9ca3af'
+            ctx.font = '12px sans-serif'
+            ctx.fillText('www.clubcolmena.org', 200, 550)
+            
+            // Descargar
+            const link = document.createElement('a')
+            link.download = `credencial-${beeData.affiliationNumber}.png`
+            link.href = canvas.toDataURL('image/png')
+            link.click()
+            
+            setDownloadError(null)
+          }
+        }
+      } catch (fallbackError) {
+        console.error('Fallback error:', fallbackError)
+      }
     } finally {
       setDownloading(false)
     }
@@ -325,7 +366,7 @@ export default function CredentialPage() {
 
       {/* Error de descarga */}
       {downloadError && (
-        <div className="max-w-md mx-auto mt-4 bg-red-100 text-red-700 p-3 rounded-lg text-center text-sm">
+        <div className="max-w-md mx-auto mt-4 bg-yellow-100 text-yellow-800 p-3 rounded-lg text-center text-sm">
           {downloadError}
         </div>
       )}
