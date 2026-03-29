@@ -45,6 +45,7 @@ export default function CredentialPage() {
   const [beeData, setBeeData] = useState<BeeData | null>(null)
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
   const credentialRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -118,20 +119,37 @@ export default function CredentialPage() {
     if (!credentialRef.current || !beeData) return
     
     setDownloading(true)
+    setDownloadError(null)
+    
     try {
-      const html2canvas = (await import('html2canvas')).default
+      // Importar html2canvas dinámicamente
+      const html2canvasModule = await import('html2canvas')
+      const html2canvas = html2canvasModule.default
+      
+      // Capturar el elemento
       const canvas = await html2canvas(credentialRef.current, {
         scale: 2,
-        backgroundColor: null,
-        useCORS: true
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        // Ignorar elementos problemáticos
+        ignoreElements: (element) => {
+          return element.tagName === 'IFRAME'
+        }
       })
       
+      // Crear enlace de descarga
       const link = document.createElement('a')
       link.download = `credencial-${beeData.affiliationNumber}.png`
-      link.href = canvas.toDataURL('image/png')
+      link.href = canvas.toDataURL('image/png', 1.0)
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
+      
     } catch (error) {
-      console.error('Error downloading:', error)
+      console.error('Error descargando:', error)
+      setDownloadError('Error al descargar. Intenta con el botón derecho > Guardar imagen.')
     } finally {
       setDownloading(false)
     }
@@ -203,8 +221,8 @@ export default function CredentialPage() {
       <div className="max-w-md mx-auto" ref={credentialRef}>
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
           {/* Encabezado */}
-          <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-6 text-white text-center relative">
-            <div className="absolute top-0 left-0 w-full h-full opacity-10">
+          <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-6 text-white text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
               <svg viewBox="0 0 100 100" className="w-full h-full">
                 {[...Array(20)].map((_, i) => (
                   <polygon 
@@ -216,13 +234,15 @@ export default function CredentialPage() {
                 ))}
               </svg>
             </div>
-            <img src="/logo-icono.png" alt="Logo" className="w-20 h-20 mx-auto mb-3 rounded-full bg-white p-2 shadow-lg relative z-10" />
+            <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-white p-2 shadow-lg relative z-10 flex items-center justify-center">
+              <span className="text-4xl">🐝</span>
+            </div>
             <h2 className="text-2xl font-bold relative z-10">EL CLUB DE LA COLMENA</h2>
             <p className="text-amber-100 text-sm relative z-10">Fundación Educativa para Becas</p>
           </div>
 
           {/* Cuerpo */}
-          <div className="p-6">
+          <div className="p-6 bg-white">
             {/* Foto y Nombre */}
             <div className="text-center mb-6">
               <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
@@ -269,14 +289,6 @@ export default function CredentialPage() {
                   size={150}
                   level="H"
                   includeMargin={false}
-                  imageSettings={{
-                    src: '/logo-icono.png',
-                    x: undefined,
-                    y: undefined,
-                    height: 30,
-                    width: 30,
-                    excavate: true,
-                  }}
                 />
               </div>
               <p className="text-xs text-gray-500 mt-2">Escanea para verificar</p>
@@ -310,6 +322,13 @@ export default function CredentialPage() {
           Compartir
         </Button>
       </div>
+
+      {/* Error de descarga */}
+      {downloadError && (
+        <div className="max-w-md mx-auto mt-4 bg-red-100 text-red-700 p-3 rounded-lg text-center text-sm">
+          {downloadError}
+        </div>
+      )}
 
       {/* Información adicional */}
       <div className="max-w-md mx-auto mt-8 bg-white/20 rounded-xl p-4 text-white text-center">
