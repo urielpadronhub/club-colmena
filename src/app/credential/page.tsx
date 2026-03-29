@@ -7,7 +7,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { QRCodeSVG } from 'qrcode.react'
 import { Download, Share2, ArrowLeft, CheckCircle } from 'lucide-react'
-import { domToPng } from 'modern-screenshot'
 
 interface UserData {
   id: string
@@ -123,7 +122,9 @@ export default function CredentialPage() {
     setDownloadError(null)
     
     try {
-      // Usar modern-screenshot para capturar
+      // Usar modern-screenshot que es más confiable
+      const { domToPng } = await import('modern-screenshot')
+      
       const dataUrl = await domToPng(credentialRef.current, {
         scale: 2,
         backgroundColor: '#ffffff',
@@ -138,58 +139,28 @@ export default function CredentialPage() {
       document.body.removeChild(link)
       
     } catch (error) {
-      console.error('Error descargando:', error)
-      setDownloadError('Error al descargar. Intenta hacer captura de pantalla.')
+      console.error('Error con modern-screenshot:', error)
       
-      // Fallback: intentar con el método nativo
+      // Intentar con método alternativo usando Canvas
       try {
-        if (credentialRef.current) {
-          // Crear un canvas alternativo
-          const canvas = document.createElement('canvas')
-          const ctx = canvas.getContext('2d')
-          if (ctx) {
-            canvas.width = 400
-            canvas.height = 600
-            
-            // Fondo blanco
-            ctx.fillStyle = '#ffffff'
-            ctx.fillRect(0, 0, canvas.width, canvas.height)
-            
-            // Texto básico
-            ctx.fillStyle = '#d97706'
-            ctx.font = 'bold 24px sans-serif'
-            ctx.textAlign = 'center'
-            ctx.fillText('EL CLUB DE LA COLMENA', 200, 50)
-            
-            ctx.fillStyle = '#1f2937'
-            ctx.font = 'bold 20px sans-serif'
-            ctx.fillText(beeData.user.name, 200, 150)
-            
-            ctx.fillStyle = '#d97706'
-            ctx.font = 'bold 28px monospace'
-            ctx.fillText(beeData.affiliationNumber, 200, 250)
-            
-            ctx.fillStyle = '#6b7280'
-            ctx.font = '14px sans-serif'
-            ctx.fillText(`Tipo: ${getMemberBadge(beeData.memberType)}`, 200, 320)
-            ctx.fillText(`Acciones: ${beeData.totalActions}`, 200, 350)
-            ctx.fillText(`Miembro desde: ${formatDate(beeData.createdAt)}`, 200, 380)
-            
-            ctx.fillStyle = '#9ca3af'
-            ctx.font = '12px sans-serif'
-            ctx.fillText('www.clubcolmena.org', 200, 550)
-            
-            // Descargar
-            const link = document.createElement('a')
-            link.download = `credencial-${beeData.affiliationNumber}.png`
-            link.href = canvas.toDataURL('image/png')
-            link.click()
-            
-            setDownloadError(null)
-          }
-        }
-      } catch (fallbackError) {
-        console.error('Fallback error:', fallbackError)
+        const html2canvas = (await import('html2canvas')).default
+        const canvas = await html2canvas(credentialRef.current, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          allowTaint: true,
+        })
+        
+        const link = document.createElement('a')
+        link.download = `credencial-${beeData.affiliationNumber}.png`
+        link.href = canvas.toDataURL('image/png')
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+      } catch (error2) {
+        console.error('Error con html2canvas también:', error2)
+        setDownloadError('No se pudo descargar. Haz captura de pantalla con tu teléfono.')
       }
     } finally {
       setDownloading(false)
@@ -199,20 +170,20 @@ export default function CredentialPage() {
   const handleShare = async () => {
     if (!beeData) return
     
-    const shareData = {
-      title: 'Mi Credencial - El Club de La Colmena',
-      text: `Soy ${beeData.user.name}, ${getMemberBadge(beeData.memberType)} del Club de La Colmena. Afiliación: ${beeData.affiliationNumber}`,
-      url: window.location.href
-    }
+    const shareText = `Soy ${beeData.user.name}, ${getMemberBadge(beeData.memberType)} del Club de La Colmena. Afiliación: ${beeData.affiliationNumber}`
     
     if (navigator.share) {
       try {
-        await navigator.share(shareData)
+        await navigator.share({
+          title: 'Mi Credencial - El Club de La Colmena',
+          text: shareText,
+          url: window.location.href
+        })
       } catch (error) {
-        console.log('Error sharing:', error)
+        console.log('Share cancelled')
       }
     } else {
-      navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`)
+      navigator.clipboard.writeText(`${shareText}\n${window.location.href}`)
       alert('Enlace copiado al portapapeles')
     }
   }
@@ -258,7 +229,7 @@ export default function CredentialPage() {
         <h1 className="text-2xl font-bold text-white text-center">Mi Credencial Digital</h1>
       </div>
 
-      {/* Credencial */}
+      {/* Credencial - Este es el elemento que se descarga */}
       <div className="max-w-md mx-auto" ref={credentialRef}>
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
           {/* Encabezado */}
@@ -290,9 +261,9 @@ export default function CredentialPage() {
                 {beeData.user.name.charAt(0).toUpperCase()}
               </div>
               <h3 className="text-2xl font-bold text-gray-800">{beeData.user.name}</h3>
-              <Badge className={`${memberInfo.color} ${memberInfo.textColor} mt-2 text-sm px-4 py-1`}>
+              <div className={`${memberInfo.color} ${memberInfo.textColor} mt-2 text-sm px-4 py-1 rounded-full inline-block`}>
                 {memberInfo.icon} {memberInfo.label}
-              </Badge>
+              </div>
             </div>
 
             {/* Información */}
@@ -366,13 +337,25 @@ export default function CredentialPage() {
 
       {/* Error de descarga */}
       {downloadError && (
-        <div className="max-w-md mx-auto mt-4 bg-yellow-100 text-yellow-800 p-3 rounded-lg text-center text-sm">
+        <div className="max-w-md mx-auto mt-4 bg-red-100 text-red-700 p-3 rounded-lg text-center text-sm">
           {downloadError}
         </div>
       )}
 
+      {/* Instrucciones alternativas */}
+      <div className="max-w-md mx-auto mt-6 bg-white/10 rounded-xl p-4 text-white text-center">
+        <p className="text-sm font-medium mb-2">💡 Tip para descargar:</p>
+        <p className="text-xs text-amber-100">
+          Si el botón no funciona, haz captura de pantalla en tu teléfono:
+          <br />
+          <strong>iPhone:</strong> Botón lateral + Subir volumen
+          <br />
+          <strong>Android:</strong> Botón encendido + Bajar volumen
+        </p>
+      </div>
+
       {/* Información adicional */}
-      <div className="max-w-md mx-auto mt-8 bg-white/20 rounded-xl p-4 text-white text-center">
+      <div className="max-w-md mx-auto mt-6 bg-white/20 rounded-xl p-4 text-white text-center">
         <p className="text-sm">
           🐝 Esta credencial certifica que eres parte de <strong>El Club de La Colmena</strong>, 
           una comunidad que transforma vidas a través de becas educativas.
