@@ -1,64 +1,127 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
-// GET: Obtener estado de códigos
+// GET: Obtener estado de códigos (OPTIMIZADO - solo estadísticas)
 export async function GET(request: NextRequest) {
   try {
     if (!supabase) {
       return NextResponse.json({ error: 'Base de datos no configurada' }, { status: 500 })
     }
 
-    // Obtener códigos Elite
-    const { data: eliteCodes, error: eliteError } = await supabase
-      .from('EliteCode')
-      .select('*')
-      .order('elite_number', { ascending: true })
+    const { searchParams } = new URL(request.url)
+    const detailed = searchParams.get('detailed') === 'true'
+    const type = searchParams.get('type') // 'elite' o 'founder'
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '50')
 
-    if (eliteError) {
-      console.error('Error fetching EliteCode:', eliteError)
+    // Si solo queremos estadísticas (más rápido)
+    if (!detailed) {
+      // Contar Elite con una sola query
+      const { count: eliteTotal } = await supabase
+        .from('EliteCode')
+        .select('*', { count: 'exact', head: true })
+      
+      const { count: eliteAvailable } = await supabase
+        .from('EliteCode')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'available')
+      
+      const { count: eliteAssigned } = await supabase
+        .from('EliteCode')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'assigned')
+
+      // Contar Fundador con una sola query
+      const { count: founderTotal } = await supabase
+        .from('FounderCode')
+        .select('*', { count: 'exact', head: true })
+      
+      const { count: founderAvailable } = await supabase
+        .from('FounderCode')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'available')
+      
+      const { count: founderAssigned } = await supabase
+        .from('FounderCode')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'assigned')
+
+      // Contadores especiales de Fundador
+      const { count: becasTotal } = await supabase
+        .from('FounderCode')
+        .select('*', { count: 'exact', head: true })
+        .eq('elite_number', 0)
+      
+      const { count: becasAvailable } = await supabase
+        .from('FounderCode')
+        .select('*', { count: 'exact', head: true })
+        .eq('elite_number', 0)
+        .eq('status', 'available')
+
+      return NextResponse.json({
+        success: true,
+        elite: {
+          total: eliteTotal || 0,
+          available: eliteAvailable || 0,
+          assigned: eliteAssigned || 0
+        },
+        founder: {
+          total: founderTotal || 0,
+          available: founderAvailable || 0,
+          assigned: founderAssigned || 0,
+          becas: becasTotal || 0,
+          becasAvailable: becasAvailable || 0,
+          comerciales: (founderTotal || 0) - (becasTotal || 0),
+          comercialesAvailable: (founderAvailable || 0) - (becasAvailable || 0)
+        }
+      })
     }
 
-    // Obtener códigos Fundador
-    const { data: founderCodes, error: founderError } = await supabase
-      .from('FounderCode')
-      .select('*')
-      .order('elite_number', { ascending: true })
-      .order('founder_number', { ascending: true })
+    // Si queremos códigos detallados (con paginación)
+    const offset = (page - 1) * limit
 
-    if (founderError) {
-      console.error('Error fetching FounderCode:', founderError)
+    if (type === 'elite') {
+      const { data: codes, count } = await supabase
+        .from('EliteCode')
+        .select('*', { count: 'exact' })
+        .order('elite_number', { ascending: true })
+        .range(offset, offset + limit - 1)
+
+      return NextResponse.json({
+        success: true,
+        type: 'elite',
+        codes: codes || [],
+        pagination: {
+          page,
+          limit,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / limit)
+        }
+      })
     }
 
-    // Calcular estadísticas
-    const eliteStats = {
-      total: eliteCodes?.length || 0,
-      available: eliteCodes?.filter(c => c.status === 'available').length || 0,
-      assigned: eliteCodes?.filter(c => c.status === 'assigned').length || 0
+    if (type === 'founder') {
+      const { data: codes, count } = await supabase
+        .from('FounderCode')
+        .select('*', { count: 'exact' })
+        .order('elite_number', { ascending: true })
+        .order('founder_number', { ascending: true })
+        .range(offset, offset + limit - 1)
+
+      return NextResponse.json({
+        success: true,
+        type: 'founder',
+        codes: codes || [],
+        pagination: {
+          page,
+          limit,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / limit)
+        }
+      })
     }
 
-    const founderStats = {
-      total: founderCodes?.length || 0,
-      available: founderCodes?.filter(c => c.status === 'available').length || 0,
-      assigned: founderCodes?.filter(c => c.status === 'assigned').length || 0,
-      byElite: {
-        becas: founderCodes?.filter(c => c.elite_number === 0).length || 0,
-        becasAvailable: founderCodes?.filter(c => c.elite_number === 0 && c.status === 'available').length || 0,
-        comerciales: founderCodes?.filter(c => c.elite_number > 0).length || 0,
-        comercialesAvailable: founderCodes?.filter(c => c.elite_number > 0 && c.status === 'available').length || 0
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      elite: {
-        stats: eliteStats,
-        codes: eliteCodes || []
-      },
-      founder: {
-        stats: founderStats,
-        codes: founderCodes || []
-      }
-    })
+    return NextResponse.json({ error: 'Especifica type=elite o type=founder con detailed=true' }, { status: 400 })
 
   } catch (error) {
     console.error('Error en codes API:', error)
@@ -66,7 +129,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Inicializar o asignar códigos
+// POST: Inicializar o asignar códigos (OPTIMIZADO con batch insert)
 export async function POST(request: NextRequest) {
   try {
     if (!supabase) {
@@ -81,7 +144,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
     }
 
-    // Acción: Inicializar códigos Elite
+    // Acción: Inicializar códigos Elite (BATCH INSERT)
     if (action === 'init-elite') {
       const eliteCodes = []
       for (let i = 1; i <= 100; i++) {
@@ -96,29 +159,22 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      let insertedCount = 0
-      let errors = []
+      // Insertar todos de una vez (batch)
+      const { error, count: insertedCount } = await supabase
+        .from('EliteCode')
+        .upsert(eliteCodes, { onConflict: 'code', count: 'exact' })
 
-      for (const codeData of eliteCodes) {
-        const { error } = await supabase
-          .from('EliteCode')
-          .upsert(codeData, { onConflict: 'code' })
-
-        if (!error) {
-          insertedCount++
-        } else {
-          if (errors.length < 5) errors.push(error.message)
-        }
+      if (error) {
+        return NextResponse.json({ error: 'Error insertando códigos Elite', details: error.message }, { status: 500 })
       }
 
       return NextResponse.json({
         success: true,
-        message: `Códigos Elite inicializados: ${insertedCount}/100`,
-        errors: errors.length > 0 ? errors : undefined
+        message: `Códigos Elite inicializados: ${insertedCount || 100}/100`
       })
     }
 
-    // Acción: Inicializar códigos Fundador
+    // Acción: Inicializar códigos Fundador (BATCH INSERT)
     if (action === 'init-founder') {
       const founderCodes = []
 
@@ -138,11 +194,10 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Fundadores COMERCIALES: Cada Elite tiene hasta 10 fundadores
+      // Fundadores COMERCIALES: Cada Elite tiene 3 fundadores iniciales
       let founderCounter = 201
       for (let elite = 1; elite <= 100; elite++) {
         const eliteNum = elite.toString().padStart(3, '0')
-        // Asignar 3 fundadores iniciales por Elite (pueden crecer hasta 10)
         for (let j = 0; j < 3; j++) {
           const founderNum = founderCounter.toString().padStart(3, '0')
           founderCodes.push({
@@ -160,30 +215,29 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      let insertedCount = 0
-      let errors = []
-
-      for (const codeData of founderCodes) {
-        const { error } = await supabase
+      // Insertar en lotes de 100 para evitar timeout
+      const batchSize = 100
+      let totalInserted = 0
+      
+      for (let i = 0; i < founderCodes.length; i += batchSize) {
+        const batch = founderCodes.slice(i, i + batchSize)
+        const { error, count } = await supabase
           .from('FounderCode')
-          .upsert(codeData, { onConflict: 'code' })
-
+          .upsert(batch, { onConflict: 'code', count: 'exact' })
+        
         if (!error) {
-          insertedCount++
-        } else {
-          if (errors.length < 5) errors.push(error.message)
+          totalInserted += count || batch.length
         }
       }
 
       return NextResponse.json({
         success: true,
-        message: `Códigos Fundador inicializados: ${insertedCount}/500`,
+        message: `Códigos Fundador inicializados: ${totalInserted}/500`,
         details: {
           becas: 200,
           comerciales: 300,
           total: founderCodes.length
-        },
-        errors: errors.length > 0 ? errors : undefined
+        }
       })
     }
 
@@ -195,7 +249,6 @@ export async function POST(request: NextRequest) {
 
       const upperCode = code.toUpperCase()
 
-      // Verificar que el código existe y está disponible
       const { data: eliteCode, error: fetchError } = await supabase
         .from('EliteCode')
         .select('*')
@@ -212,7 +265,6 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
       }
 
-      // Asignar el código
       const { error: updateError } = await supabase
         .from('EliteCode')
         .update({
@@ -243,7 +295,6 @@ export async function POST(request: NextRequest) {
 
       const upperCode = code.toUpperCase()
 
-      // Verificar que el código existe y está disponible
       const { data: founderCode, error: fetchError } = await supabase
         .from('FounderCode')
         .select('*')
@@ -260,7 +311,6 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
       }
 
-      // Asignar el código
       const { error: updateError } = await supabase
         .from('FounderCode')
         .update({
@@ -293,7 +343,6 @@ export async function POST(request: NextRequest) {
 
       const slotsToAdd = count || 1
 
-      // Obtener el máximo founder_number para este Elite
       const { data: existingCodes } = await supabase
         .from('FounderCode')
         .select('founder_number')
@@ -303,7 +352,7 @@ export async function POST(request: NextRequest) {
 
       const maxFounder = existingCodes && existingCodes.length > 0 
         ? existingCodes[0].founder_number 
-        : 200 // Empezar desde 201 si no hay códigos
+        : 200
 
       const eliteNum = eliteNumber.toString().padStart(3, '0')
       const newCodes = []
@@ -323,18 +372,18 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      let insertedCount = 0
-      for (const codeData of newCodes) {
-        const { error } = await supabase
-          .from('FounderCode')
-          .insert(codeData)
+      // Batch insert
+      const { error, count: insertedCount } = await supabase
+        .from('FounderCode')
+        .insert(newCodes, { count: 'exact' })
 
-        if (!error) insertedCount++
+      if (error) {
+        return NextResponse.json({ error: 'Error insertando códigos', details: error.message }, { status: 500 })
       }
 
       return NextResponse.json({
         success: true,
-        message: `Agregados ${insertedCount} cupos de Fundador para Elite ${eliteNum}`,
+        message: `Agregados ${insertedCount || newCodes.length} cupos de Fundador para Elite ${eliteNum}`,
         newCodes: newCodes.map(c => c.code)
       })
     }
