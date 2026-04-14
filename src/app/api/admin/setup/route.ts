@@ -35,15 +35,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El usuario ya existe', userId: existingUser.id }, { status: 400 })
     }
 
-    // Crear usuario admin
+    // Crear usuario admin con UUID generado
     const hashedPassword = simpleHash(password)
+    const { randomUUID } = await import('crypto')
+    const userId = randomUUID()
+    
     const { data: newUser, error } = await supabase
       .from('User')
       .insert({
+        id: userId,
         email,
         password: hashedPassword,
         name,
-        role: 'admin'
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       })
       .select('id, email, name, role')
       .single()
