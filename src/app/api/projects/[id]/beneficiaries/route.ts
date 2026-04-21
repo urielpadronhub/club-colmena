@@ -14,7 +14,7 @@ export async function GET(
     const { id } = await params
 
     const { data: beneficiaries, error } = await supabase
-      .from('ProjectBeneficiary')
+      .from('projectbeneficiary')
       .select('*')
       .eq('project_id', id)
       .order('created_at', { ascending: false })
@@ -65,7 +65,7 @@ export async function POST(
     const beneficiaryId = randomUUID()
 
     const { data: beneficiary, error } = await supabase
-      .from('ProjectBeneficiary')
+      .from('projectbeneficiary')
       .insert({
         id: beneficiaryId,
         project_id: id,
@@ -89,14 +89,14 @@ export async function POST(
 
     // Actualizar contador en el proyecto
     const { data: project } = await supabase
-      .from('Project')
+      .from('project')
       .select('beneficiaries_count')
       .eq('id', id)
       .single()
 
     if (project) {
       await supabase
-        .from('Project')
+        .from('project')
         .update({
           beneficiaries_count: (project.beneficiaries_count || 0) + 1,
           members_integrated: integrated_to_club 

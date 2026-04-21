@@ -16,7 +16,7 @@ export async function GET(
     const publicOnly = searchParams.get('public') === 'true'
 
     let query = supabase
-      .from('ProjectEvidence')
+      .from('projectevidence')
       .select('*')
       .eq('project_id', id)
       .order('created_at', { ascending: false })
@@ -73,7 +73,7 @@ export async function POST(
     const evidenceId = randomUUID()
 
     const { data: evidence, error } = await supabase
-      .from('ProjectEvidence')
+      .from('projectevidence')
       .insert({
         id: evidenceId,
         project_id: id,

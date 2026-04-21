@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
     const publicOnly = searchParams.get('public') === 'true'
 
     let query = supabase
-      .from('Project')
+      .from('project')
       .select(`
         *,
-        Institution (
+        institution (
           id,
           name,
           type,
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         status: p.status,
         progress_percentage: p.progress_percentage,
         beneficiaries_count: p.beneficiaries_count,
-        institution: p.Institution?.name,
+        institution: p.institution?.name,
         date_start: p.date_start,
         date_end_planned: p.date_end_planned
       }))
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     const projectId = randomUUID()
 
     const { data: project, error } = await supabase
-      .from('Project')
+      .from('project')
       .insert({
         id: projectId,
         institution_id,

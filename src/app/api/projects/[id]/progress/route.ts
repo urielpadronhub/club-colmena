@@ -14,7 +14,7 @@ export async function GET(
     const { id } = await params
 
     const { data: progress, error } = await supabase
-      .from('ProjectProgress')
+      .from('projectprogress')
       .select('*')
       .eq('project_id', id)
       .order('created_at', { ascending: false })
@@ -66,7 +66,7 @@ export async function POST(
 
     // Crear el avance
     const { data: progress, error } = await supabase
-      .from('ProjectProgress')
+      .from('projectprogress')
       .insert({
         id: progressId,
         project_id: id,
@@ -90,7 +90,7 @@ export async function POST(
     // Actualizar el porcentaje del proyecto
     if (percentage_after !== undefined) {
       await supabase
-        .from('Project')
+        .from('project')
         .update({
           progress_percentage: percentage_after,
           updated_at: new Date().toISOString()
@@ -101,14 +101,14 @@ export async function POST(
     // Actualizar monto gastado
     if (amount_spent) {
       const { data: project } = await supabase
-        .from('Project')
+        .from('project')
         .select('budget_spent')
         .eq('id', id)
         .single()
 
       if (project) {
         await supabase
-          .from('Project')
+          .from('project')
           .update({
             budget_spent: (project.budget_spent || 0) + amount_spent,
             updated_at: new Date().toISOString()

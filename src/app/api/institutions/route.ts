@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
 
     let query = supabase
-      .from('Institution')
+      .from('institution')
       .select('*')
       .order('created_at', { ascending: false })
 
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     const institutionId = randomUUID()
 
     const { data: institution, error } = await supabase
-      .from('Institution')
+      .from('institution')
       .insert({
         id: institutionId,
         name,

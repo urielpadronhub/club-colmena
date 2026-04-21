@@ -36,7 +36,7 @@ interface Project {
   location_region: string
   date_start: string
   date_end_planned: string
-  Institution: {
+  institution: {
     id: string
     name: string
     type: string
@@ -349,7 +349,7 @@ export default function ProjectsAdminPage() {
                   <div key={project.id} className="flex items-center justify-between py-3 border-b last:border-0">
                     <div className="flex-1">
                       <p className="font-medium">{project.title}</p>
-                      <p className="text-sm text-gray-500">{project.Institution?.name}</p>
+                      <p className="text-sm text-gray-500">{project.institution?.name}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <Progress value={project.progress_percentage} className="w-24" />
@@ -455,7 +455,7 @@ export default function ProjectsAdminPage() {
                       Contacto: {inst.contact_name || 'No asignado'}
                     </p>
                     <p className="text-sm text-gray-600">
-                      Proyectos: {projects.filter(p => p.Institution?.id === inst.id).length}
+                      Proyectos: {projects.filter(p => p.institution?.id === inst.id).length}
                     </p>
                   </CardContent>
                 </Card>
@@ -590,7 +590,7 @@ export default function ProjectsAdminPage() {
                         <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                           <span className="flex items-center gap-1">
                             <Building2 className="h-4 w-4" />
-                            {project.Institution?.name}
+                            {project.institution?.name}
                           </span>
                           <span className="flex items-center gap-1">
                             <MapPin className="h-4 w-4" />
@@ -660,7 +660,7 @@ export default function ProjectsAdminPage() {
               <DialogHeader>
                 <DialogTitle>{selectedProject.title}</DialogTitle>
                 <DialogDescription>
-                  {selectedProject.Institution?.name} - {categoryLabels[selectedProject.category]}
+                  {selectedProject.institution?.name} - {categoryLabels[selectedProject.category]}
                 </DialogDescription>
               </DialogHeader>
               
