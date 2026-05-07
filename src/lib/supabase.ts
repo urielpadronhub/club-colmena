@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://ummcsukhvnbhngrcwmfb.supabase.co'
+const supabaseUrl = process.env.SUPABASE_URL || 'https://axfvkozvcctfjirhgpwo.supabase.co'
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY
 
 // Usar service role key para operaciones del backend
