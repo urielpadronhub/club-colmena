@@ -252,8 +252,8 @@ export default function Dashboard() {
     )
   }
 
-  const pendingMonthlyPayments = beeData.payments.filter(p => p.type === 'monthly' && p.status === 'pending')
-  const paidMonthlyPayments = beeData.payments.filter(p => p.type === 'monthly' && p.status === 'completed')
+  const pendingMonthlyPayments = (beeData.payments || []).filter(p => p.type === 'monthly' && p.status === 'pending')
+  const paidMonthlyPayments = (beeData.payments || []).filter(p => p.type === 'monthly' && p.status === 'completed')
 
   return (
     <div className="min-h-screen bg-amber-50">
@@ -353,7 +353,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Acciones de Regalo</p>
-                  <p className="text-2xl font-bold">{beeData.availableGiftActions.length}</p>
+                  <p className="text-2xl font-bold">{(beeData.availableGiftActions || []).length}</p>
                 </div>
               </div>
             </CardContent>
@@ -381,7 +381,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Premios Ganados</p>
-                  <p className="text-2xl font-bold">{beeData.raffleWins.length}</p>
+                  <p className="text-2xl font-bold">{(beeData.raffleWins || []).length}</p>
                 </div>
               </div>
             </CardContent>
@@ -411,9 +411,9 @@ export default function Dashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {beeData.availableGiftActions.length > 0 ? (
+                {(beeData.availableGiftActions || []).length > 0 ? (
                   <div className="space-y-3">
-                    {beeData.availableGiftActions.map((gift) => (
+                    {(beeData.availableGiftActions || []).map((gift) => (
                       <div key={gift.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
                         <code className="text-lg font-mono font-bold text-purple-700">{gift.giftCode}</code>
                         <Button 
@@ -450,7 +450,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {beeData.actions.map((action) => (
+                  {(beeData.actions || []).map((action) => (
                     <div key={action.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                       <div>
                         <p className="font-medium">{action.description}</p>
@@ -535,7 +535,7 @@ export default function Dashboard() {
           {/* Tab: Sorteos */}
           <TabsContent value="sorteos" className="space-y-6">
             {/* Premios ganados */}
-            {beeData.raffleWins.length > 0 && (
+            {(beeData.raffleWins || []).length > 0 && (
               <Card className="border-green-200 bg-green-50">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -545,7 +545,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {beeData.raffleWins.map((win) => (
+                    {(beeData.raffleWins || []).map((win) => (
                       <div key={win.id} className="flex items-center justify-between p-3 bg-white rounded border">
                         <div>
                           <p className="font-medium">{win.raffle.name}</p>

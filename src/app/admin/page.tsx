@@ -891,7 +891,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {codesData.elite.codes.filter(c => c.status === 'assigned').slice(0, 5).map((code) => (
+                        {(codesData.elite.codes || []).filter(c => c.status === 'assigned').slice(0, 5).map((code) => (
                           <tr key={code.id} className="border-b bg-purple-50">
                             <td className="p-2"><Badge className="bg-purple-500">Elite</Badge></td>
                             <td className="p-2 font-mono">{code.code}</td>
@@ -905,7 +905,7 @@ export default function AdminDashboard() {
                             </td>
                           </tr>
                         ))}
-                        {codesData.founder.codes.filter(c => c.status === 'assigned').slice(0, 10).map((code) => (
+                        {(codesData.founder.codes || []).filter(c => c.status === 'assigned').slice(0, 10).map((code) => (
                           <tr key={code.id} className="border-b bg-blue-50">
                             <td className="p-2"><Badge className="bg-blue-500">Fundador</Badge></td>
                             <td className="p-2 font-mono">{code.code}</td>

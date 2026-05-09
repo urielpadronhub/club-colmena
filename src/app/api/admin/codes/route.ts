@@ -58,21 +58,40 @@ export async function GET(request: NextRequest) {
         .eq('elite_number', 0)
         .eq('status', 'available')
 
+      // Obtener todos los códigos Elite (limitado a 500)
+      const { data: eliteCodes } = await supabase
+        .from('EliteCode')
+        .select('*')
+        .order('elite_number', { ascending: true })
+        .limit(500)
+
+      // Obtener todos los códigos Fundador (limitado a 1000)
+      const { data: founderCodes } = await supabase
+        .from('FounderCode')
+        .select('*')
+        .order('elite_number', { ascending: true })
+        .order('founder_number', { ascending: true })
+        .limit(1000)
+
       return NextResponse.json({
         success: true,
         elite: {
-          total: eliteTotal || 0,
-          available: eliteAvailable || 0,
-          assigned: eliteAssigned || 0
+          stats: { total: eliteTotal || 0, available: eliteAvailable || 0, assigned: eliteAssigned || 0 },
+          codes: eliteCodes || []
         },
         founder: {
-          total: founderTotal || 0,
-          available: founderAvailable || 0,
-          assigned: founderAssigned || 0,
-          becas: becasTotal || 0,
-          becasAvailable: becasAvailable || 0,
-          comerciales: (founderTotal || 0) - (becasTotal || 0),
-          comercialesAvailable: (founderAvailable || 0) - (becasAvailable || 0)
+          stats: { 
+            total: founderTotal || 0, 
+            available: founderAvailable || 0, 
+            assigned: founderAssigned || 0,
+            byElite: {
+              becas: becasTotal || 0,
+              becasAvailable: becasAvailable || 0,
+              comerciales: (founderTotal || 0) - (becasTotal || 0),
+              comercialesAvailable: (founderAvailable || 0) - (becasAvailable || 0)
+            }
+          },
+          codes: founderCodes || []
         }
       })
     }
