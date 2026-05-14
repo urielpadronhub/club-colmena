@@ -158,8 +158,8 @@ export async function POST(request: NextRequest) {
           memberType = 'fundador'
           eliteNumber = founderCode.elite_number
           founderNumber = founderCode.founder_number
-          actionsToCreate = 50 // Fundador recibe 50 acciones
-          giftCodesToCreate = 50 // Fundador recibe 50 códigos MIEL para invitar
+          actionsToCreate = 20 // Fundador recibe 20 acciones
+          giftCodesToCreate = 20 // Fundador recibe 20 códigos MIEL para invitar
           
           // Marcar código como usado
           await supabase
@@ -300,18 +300,18 @@ export async function POST(request: NextRequest) {
       createdActions.push({ type: 'elite', quantity: 1 })
     } 
     else if (memberType === 'fundador') {
-      // Fundador recibe 50 acciones
+      // Fundador recibe 20 acciones
       await supabase
         .from('Action')
         .insert({
           id: randomUUID(),
           beeId: beeId,
           type: 'fundador',
-          description: `50 Acciones de Fundador - ADN: ${affiliationNumber.split('-').slice(0, 2).join('-')}`,
-          quantity: 50,
+          description: `20 Acciones de Fundador - ADN: ${affiliationNumber.split('-').slice(0, 2).join('-')}`,
+          quantity: 20,
           createdAt: new Date().toISOString()
         })
-      createdActions.push({ type: 'fundador', quantity: 50 })
+      createdActions.push({ type: 'fundador', quantity: 20 })
     }
     else {
       // Formal recibe 1 acción por activación
@@ -334,9 +334,9 @@ export async function POST(request: NextRequest) {
     
     const giftCodes = []
     
-    // Fundadores reciben 50 códigos MIEL con su ADN
+    // Fundadores reciben 20 códigos MIEL con su ADN
     // Formales reciben 3 códigos MIEL normales
-    const numGiftCodes = memberType === 'fundador' ? 50 : (memberType === 'formal' ? 3 : 0)
+    const numGiftCodes = memberType === 'fundador' ? 20 : (memberType === 'formal' ? 3 : 0)
     
     for (let i = 0; i < numGiftCodes; i++) {
       const code = await generateGiftCode()

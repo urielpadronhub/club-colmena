@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
           founder_number: f,
           adn_prefix: `000-${founderNum}`,
           status: 'available',
-          actions_granted: 50,
+          actions_granted: 20,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
             founder_number: founderCounter,
             adn_prefix: `${eliteNum}-${founderNum}`,
             status: 'available',
-            actions_granted: 50,
+            actions_granted: 20,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
