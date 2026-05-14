@@ -734,7 +734,7 @@ export default function AdminDashboard() {
             </Card>
 
             {/* GRID DE CÓDIGOS ELITE */}
-            {codesData && codesData.elite.codes.length > 0 && (
+            {codesData && codesData?.elite?.codes?.length > 0 && (
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-center">
@@ -872,7 +872,7 @@ export default function AdminDashboard() {
             )}
 
             {/* CÓDIGOS ASIGNADOS RECIENTEMENTE */}
-            {codesData && (codesData.elite.stats.assigned > 0 || codesData.founder.stats.assigned > 0) && (
+            {codesData && (codesData?.elite?.stats?.assigned > 0 || codesData?.founder?.stats?.assigned > 0) && (
               <Card className="border-green-200">
                 <CardHeader className="bg-green-50">
                   <CardTitle className="text-green-800">✅ Códigos Asignados Recientemente</CardTitle>
