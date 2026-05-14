@@ -27,10 +27,10 @@ export async function POST(request: NextRequest) {
     const hashedPassword = simpleHash(newPassword)
 
     const { data: user, error } = await supabase
-      .from('user')
+      .from('User')
       .update({
         password: hashedPassword,
-        updatedat: new Date().toISOString()
+        updatedAt: new Date().toISOString()
       })
       .eq('email', email)
       .select('id, email, name, role')
