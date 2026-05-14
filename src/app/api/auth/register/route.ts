@@ -348,8 +348,6 @@ export async function POST(request: NextRequest) {
           giverBeeId: beeId,
           giftCode: code,
           status: 'available',
-          eliteNumber: eliteNumber,
-          founderNumber: founderNumber,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         })
