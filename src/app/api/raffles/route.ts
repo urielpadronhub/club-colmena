@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+// Generate a CUID-like ID
+function generateId(): string {
+  const timestamp = Date.now().toString(36)
+  const random = Math.random().toString(36).substring(2, 10)
+  return `c${timestamp}${random}`
+}
+
 // Obtener sorteos
 export async function GET(request: NextRequest) {
   try {
@@ -81,6 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     const raffleData = {
+      id: generateId(),
       name,
       description: description || null,
       type,
