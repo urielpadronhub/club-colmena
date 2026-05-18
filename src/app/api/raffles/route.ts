@@ -1,35 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 // Obtener sorteos
 export async function GET(request: NextRequest) {
   try {
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 500 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const type = searchParams.get('type')
 
-    const where: Record<string, unknown> = {}
-    if (status) where.status = status
-    if (type) where.type = type
+    let query = supabase
+      .from('Raffle')
+      .select(`
+        *,
+        winners:RaffleWinner(
+          *,
+          bee:Bee(
+            *,
+            user:User(name, email)
+          )
+        )
+      `)
+      .order('scheduledDate', { ascending: false })
 
-    const raffles = await db.raffle.findMany({
-      where,
-      include: {
-        winners: {
-          include: {
-            bee: {
-              include: {
-                user: { select: { name: true, email: true } }
-              }
-            }
-          }
-        },
-        _count: {
-          select: { tickets: true, winners: true }
-        }
-      },
-      orderBy: { scheduledDate: 'desc' }
-    })
+    if (status) {
+      query = query.eq('status', status)
+    }
+    if (type) {
+      query = query.eq('type', type)
+    }
+
+    const { data: raffles, error } = await query
+
+    if (error) {
+      console.error('Error obteniendo sorteos:', error)
+      return NextResponse.json(
+        { error: 'Error interno del servidor' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
@@ -48,6 +63,13 @@ export async function GET(request: NextRequest) {
 // Crear sorteo
 export async function POST(request: NextRequest) {
   try {
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 500 }
+      )
+    }
+
     const body = await request.json()
     const { name, description, type, prizeAmount, prizeDescription, numberOfWinners, scheduledDate } = body
 
@@ -58,18 +80,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const raffle = await db.raffle.create({
-      data: {
-        name,
-        description: description || null,
-        type,
-        prizeAmount: parseFloat(prizeAmount),
-        prizeDescription: prizeDescription || null,
-        numberOfWinners: numberOfWinners || 1,
-        scheduledDate: new Date(scheduledDate),
-        status: 'scheduled'
-      }
-    })
+    const raffleData = {
+      name,
+      description: description || null,
+      type,
+      prizeAmount: parseFloat(prizeAmount),
+      prizeDescription: prizeDescription || null,
+      numberOfWinners: numberOfWinners || 1,
+      scheduledDate: scheduledDate,
+      status: 'scheduled'
+    }
+
+    const { data: raffle, error } = await supabase
+      .from('Raffle')
+      .insert([raffleData])
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error creando sorteo:', error)
+      return NextResponse.json(
+        { error: 'Error interno del servidor', details: error.message },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
@@ -88,16 +122,25 @@ export async function POST(request: NextRequest) {
 // Ejecutar sorteo
 export async function PUT(request: NextRequest) {
   try {
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 500 }
+      )
+    }
+
     const body = await request.json()
     const { raffleId, action } = body
 
     if (action === 'execute') {
       // Obtener el sorteo
-      const raffle = await db.raffle.findUnique({
-        where: { id: raffleId }
-      })
+      const { data: raffle, error: raffleError } = await supabase
+        .from('Raffle')
+        .select('*')
+        .eq('id', raffleId)
+        .single()
 
-      if (!raffle) {
+      if (raffleError || !raffle) {
         return NextResponse.json(
           { error: 'Sorteo no encontrado' },
           { status: 404 }
@@ -112,14 +155,16 @@ export async function PUT(request: NextRequest) {
       }
 
       // Generar tickets para todas las abejas activas
-      const activeBees = await db.bee.findMany({
-        where: { isActive: true },
-        include: {
-          actions: true
-        }
-      })
+      const { data: activeBees, error: beesError } = await supabase
+        .from('Bee')
+        .select(`
+          id,
+          isActive,
+          actions:Action(quantity)
+        `)
+        .eq('isActive', true)
 
-      if (activeBees.length === 0) {
+      if (beesError || !activeBees || activeBees.length === 0) {
         return NextResponse.json(
           { error: 'No hay abejas activas para el sorteo' },
           { status: 400 }
@@ -130,7 +175,7 @@ export async function PUT(request: NextRequest) {
       const participants: { beeId: string; tickets: number }[] = []
       
       for (const bee of activeBees) {
-        const totalActions = bee.actions.reduce((sum, a) => sum + a.quantity, 0)
+        const totalActions = (bee.actions as { quantity: number }[]).reduce((sum: number, a: { quantity: number }) => sum + a.quantity, 0)
         if (totalActions > 0) {
           participants.push({ beeId: bee.id, tickets: totalActions })
         }
@@ -177,38 +222,38 @@ export async function PUT(request: NextRequest) {
 
       // Guardar ganadores
       for (const winner of winners) {
-        await db.raffleWinner.create({
-          data: {
+        await supabase
+          .from('RaffleWinner')
+          .insert([{
             raffleId: raffle.id,
             beeId: winner.beeId,
             prizeAmount: raffle.prizeAmount / winners.length,
             prizePosition: winner.prizePosition,
             paymentStatus: 'pending'
-          }
-        })
+          }])
       }
 
       // Actualizar estado del sorteo
-      await db.raffle.update({
-        where: { id: raffleId },
-        data: {
+      await supabase
+        .from('Raffle')
+        .update({
           status: 'completed',
-          executedAt: new Date()
-        }
-      })
+          executedAt: new Date().toISOString()
+        })
+        .eq('id', raffleId)
 
       // Obtener ganadores con datos
-      const savedWinners = await db.raffleWinner.findMany({
-        where: { raffleId: raffle.id },
-        include: {
-          bee: {
-            include: {
-              user: { select: { name: true } },
-              bankAccount: true
-            }
-          }
-        }
-      })
+      const { data: savedWinners } = await supabase
+        .from('RaffleWinner')
+        .select(`
+          *,
+          bee:Bee(
+            *,
+            user:User(name),
+            bankAccount:BankAccount(*)
+          )
+        `)
+        .eq('raffleId', raffle.id)
 
       return NextResponse.json({
         success: true,
