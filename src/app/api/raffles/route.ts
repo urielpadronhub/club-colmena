@@ -131,17 +131,14 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
     }
 
     const body = await request.json()
     const { raffleId, action } = body
 
     if (action === 'execute') {
-      // Obtener el sorteo
+      // Get raffle
       const { data: raffle, error: raffleError } = await supabase
         .from('Raffle')
         .select('*')
@@ -149,54 +146,43 @@ export async function PUT(request: NextRequest) {
         .single()
 
       if (raffleError || !raffle) {
-        return NextResponse.json(
-          { error: 'Sorteo no encontrado' },
-          { status: 404 }
-        )
+        return NextResponse.json({ error: 'Sorteo no encontrado' }, { status: 404 })
       }
 
       if (raffle.status !== 'scheduled') {
-        return NextResponse.json(
-          { error: 'El sorteo ya fue ejecutado' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'El sorteo ya fue ejecutado' }, { status: 400 })
       }
 
-      // Generar tickets para todas las abejas activas
-      const { data: activeBees, error: beesError } = await supabase
+      // Get all active bees
+      const { data: activeBees } = await supabase
         .from('Bee')
-        .select(`
-          id,
-          isActive,
-          actions:Action(quantity)
-        `)
+        .select('id')
         .eq('isActive', true)
 
-      if (beesError || !activeBees || activeBees.length === 0) {
-        return NextResponse.json(
-          { error: 'No hay abejas activas para el sorteo' },
-          { status: 400 }
-        )
+      if (!activeBees || activeBees.length === 0) {
+        return NextResponse.json({ error: 'No hay socios activos' }, { status: 400 })
       }
 
-      // Crear array de participantes con sus tickets
+      // Get actions for each bee separately
       const participants: { beeId: string; tickets: number }[] = []
       
       for (const bee of activeBees) {
-        const totalActions = (bee.actions as { quantity: number }[]).reduce((sum: number, a: { quantity: number }) => sum + a.quantity, 0)
+        const { data: actions } = await supabase
+          .from('Action')
+          .select('quantity')
+          .eq('beeId', bee.id)
+        
+        const totalActions = actions?.reduce((sum, a) => sum + (a.quantity || 0), 0) || 0
         if (totalActions > 0) {
           participants.push({ beeId: bee.id, tickets: totalActions })
         }
       }
 
       if (participants.length === 0) {
-        return NextResponse.json(
-          { error: 'No hay participantes con acciones para el sorteo' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'No hay participantes con acciones' }, { status: 400 })
       }
 
-      // Crear array de tickets para sorteo (ponderado)
+      // Create ticket pool
       const ticketPool: string[] = []
       for (const p of participants) {
         for (let i = 0; i < p.tickets; i++) {
@@ -204,87 +190,66 @@ export async function PUT(request: NextRequest) {
         }
       }
 
-      // Seleccionar ganadores aleatoriamente
-      const winners: { beeId: string; prizePosition: number }[] = []
-      const usedBeeIds = new Set<string>()
+      // Select winner
+      const randomIndex = Math.floor(Math.random() * ticketPool.length)
+      const winnerBeeId = ticketPool[randomIndex]
 
-      for (let pos = 1; pos <= raffle.numberOfWinners; pos++) {
-        let winnerId: string | null = null
-        let attempts = 0
+      // Get winner details
+      const { data: winnerBee } = await supabase
+        .from('Bee')
+        .select('id, affiliationNumber, memberType')
+        .eq('id', winnerBeeId)
+        .single()
 
-        while (!winnerId && attempts < ticketPool.length) {
-          const randomIndex = Math.floor(Math.random() * ticketPool.length)
-          const candidateId = ticketPool[randomIndex]
-          
-          if (!usedBeeIds.has(candidateId)) {
-            winnerId = candidateId
-            usedBeeIds.add(candidateId)
-          }
-          attempts++
-        }
+      const { data: winnerUser } = await supabase
+        .from('User')
+        .select('name, email')
+        .eq('id', winnerBee?.userId || '')
+        .single()
 
-        if (winnerId) {
-          winners.push({ beeId: winnerId, prizePosition: pos })
-        }
-      }
+      // Save winner
+      await supabase
+        .from('RaffleWinner')
+        .insert([{
+          id: generateId(),
+          raffleId: raffle.id,
+          beeId: winnerBeeId,
+          prizeAmount: raffle.prizeAmount,
+          prizePosition: 1,
+          paymentStatus: 'pending',
+          createdAt: new Date().toISOString()
+        }])
 
-      // Guardar ganadores
-      for (const winner of winners) {
-        await supabase
-          .from('RaffleWinner')
-          .insert([{
-            raffleId: raffle.id,
-            beeId: winner.beeId,
-            prizeAmount: raffle.prizeAmount / winners.length,
-            prizePosition: winner.prizePosition,
-            paymentStatus: 'pending'
-          }])
-      }
-
-      // Actualizar estado del sorteo
+      // Update raffle status
       await supabase
         .from('Raffle')
-        .update({
-          status: 'completed',
-          executedAt: new Date().toISOString()
-        })
+        .update({ status: 'completed', executedAt: new Date().toISOString() })
         .eq('id', raffleId)
-
-      // Obtener ganadores con datos
-      const { data: savedWinners } = await supabase
-        .from('RaffleWinner')
-        .select(`
-          *,
-          bee:Bee(
-            *,
-            user:User(name),
-            bankAccount:BankAccount(*)
-          )
-        `)
-        .eq('raffleId', raffle.id)
 
       return NextResponse.json({
         success: true,
         message: 'Sorteo ejecutado exitosamente',
         data: {
-          raffle,
-          winners: savedWinners,
+          raffleName: raffle.name,
+          prizeAmount: raffle.prizeAmount,
+          winner: {
+            beeId: winnerBeeId,
+            name: winnerUser?.name,
+            email: winnerUser?.email,
+            affiliationNumber: winnerBee?.affiliationNumber,
+            memberType: winnerBee?.memberType
+          },
           totalParticipants: participants.length,
-          totalTickets: ticketPool.length
+          totalTickets: ticketPool.length,
+          winnerTickets: participants.find(p => p.beeId === winnerBeeId)?.tickets || 0
         }
       })
     }
 
-    return NextResponse.json(
-      { error: 'Acción no válida' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Acción no válida' }, { status: 400 })
 
   } catch (error) {
     console.error('Error ejecutando sorteo:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
