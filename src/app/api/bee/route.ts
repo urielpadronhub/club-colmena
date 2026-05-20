@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (userError || !user) {
+      console.error('Error obteniendo usuario:', userError)
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
     }
 
@@ -56,48 +57,107 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Obtener acciones
-    const { data: actions } = await supabase
-      .from('Action')
-      .select('*')
-      .eq('beeId', bee.id)
-      .order('createdAt', { ascending: false })
+    // Obtener acciones (con manejo de error)
+    let actions = []
+    try {
+      const { data: actionsData, error: actionsError } = await supabase
+        .from('Action')
+        .select('*')
+        .eq('beeId', bee.id)
+        .order('createdAt', { ascending: false })
+      
+      if (!actionsError && actionsData) {
+        actions = actionsData
+      }
+    } catch (e) {
+      console.error('Error obteniendo acciones:', e)
+    }
 
-    // Obtener pagos
-    const { data: payments } = await supabase
-      .from('Payment')
-      .select('*')
-      .eq('beeId', bee.id)
-      .order('createdAt', { ascending: false })
+    // Obtener pagos (con manejo de error)
+    let payments = []
+    try {
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('Payment')
+        .select('*')
+        .eq('beeId', bee.id)
+        .order('createdAt', { ascending: false })
+      
+      if (!paymentsError && paymentsData) {
+        payments = paymentsData
+      }
+    } catch (e) {
+      console.error('Error obteniendo pagos:', e)
+    }
 
-    // Obtener códigos de regalo disponibles
-    const { data: giftActions } = await supabase
-      .from('GiftAction')
-      .select('id, giftCode, status')
-      .eq('giverBeeId', bee.id)
-      .eq('status', 'available')
+    // Obtener códigos de regalo disponibles (con manejo de error)
+    let giftActions = []
+    try {
+      const { data: giftActionsData, error: giftError } = await supabase
+        .from('GiftAction')
+        .select('id, giftCode, status')
+        .eq('giverBeeId', bee.id)
+        .eq('status', 'available')
+      
+      if (!giftError && giftActionsData) {
+        giftActions = giftActionsData
+      }
+    } catch (e) {
+      console.error('Error obteniendo gift actions:', e)
+    }
 
-    // Obtener premios ganados
-    const { data: raffleWins } = await supabase
-      .from('RaffleWinner')
-      .select(`
-        id,
-        prizeAmount,
-        prizePosition,
-        paymentStatus,
-        Raffle (name, type)
-      `)
-      .eq('beeId', bee.id)
+    // Obtener premios ganados (con manejo de error y join correcto)
+    let raffleWins = []
+    try {
+      // Primero obtener los RaffleWinner
+      const { data: winnersData, error: winnersError } = await supabase
+        .from('RaffleWinner')
+        .select('id, prizeAmount, prizePosition, paymentStatus, raffleId')
+        .eq('beeId', bee.id)
+      
+      if (!winnersError && winnersData && winnersData.length > 0) {
+        // Luego obtener los datos de los sorteos
+        const raffleIds = winnersData.map(w => w.raffleId).filter(Boolean)
+        
+        if (raffleIds.length > 0) {
+          const { data: rafflesData } = await supabase
+            .from('Raffle')
+            .select('id, name, type')
+            .in('id', raffleIds)
+          
+          // Combinar los datos
+          const rafflesMap = new Map((rafflesData || []).map(r => [r.id, r]))
+          
+          raffleWins = winnersData.map(w => ({
+            id: w.id,
+            prizeAmount: w.prizeAmount,
+            prizePosition: w.prizePosition,
+            paymentStatus: w.paymentStatus,
+            raffle: rafflesMap.get(w.raffleId) || { name: 'Sorteo', type: 'unknown' }
+          }))
+        }
+      }
+    } catch (e) {
+      console.error('Error obteniendo raffle wins:', e)
+    }
 
-    // Obtener cuenta bancaria
-    const { data: bankAccount } = await supabase
-      .from('BankAccount')
-      .select('*')
-      .eq('beeId', bee.id)
-      .single()
+    // Obtener cuenta bancaria (con manejo de error - puede no existir)
+    let bankAccount = null
+    try {
+      const { data: bankData, error: bankError } = await supabase
+        .from('BankAccount')
+        .select('*')
+        .eq('beeId', bee.id)
+        .maybeSingle() // Usar maybeSingle() en lugar de single()
+      
+      if (!bankError && bankData) {
+        bankAccount = bankData
+      }
+    } catch (e) {
+      console.error('Error obteniendo cuenta bancaria:', e)
+    }
 
     // Calcular total de acciones
-    const totalActions = actions?.reduce((sum, a) => sum + (a.quantity || 0), 0) || 0
+    const totalActions = actions.reduce((sum: number, a: { quantity?: number }) => sum + (a.quantity || 0), 0)
 
     return NextResponse.json({
       success: true,
@@ -114,12 +174,12 @@ export async function GET(request: NextRequest) {
         memberType: bee.memberType,
         eliteNumber: bee.eliteNumber,
         founderNumber: bee.founderNumber,
-        actions: actions || [],
-        payments: payments || [],
-        raffleWins: raffleWins || [],
-        bankAccount: bankAccount || null,
+        actions: actions,
+        payments: payments,
+        raffleWins: raffleWins,
+        bankAccount: bankAccount,
         totalActions,
-        availableGiftActions: giftActions || [],
+        availableGiftActions: giftActions,
         activeReferrals: 0
       }
     })
