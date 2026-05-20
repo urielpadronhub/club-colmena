@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpiar Sesión - Club Colmena</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .emoji { font-size: 60px; margin-bottom: 20px; }
+        h1 { color: #333; margin-bottom: 10px; font-size: 24px; }
+        p { color: #666; margin-bottom: 20px; font-size: 16px; line-height: 1.5; }
+        .status {
+            background: #f3f4f6;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: left;
+        }
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-red { background: #ef4444; color: white; }
+        .btn-red:hover { background: #dc2626; }
+        .btn-amber { background: #f59e0b; color: white; }
+        .btn-amber:hover { background: #d97706; }
+        .success { color: #16a34a; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="emoji">🐝</div>
+        <h1>Reparar Sesión</h1>
+        <div class="status" id="status">Verificando sesión...</div>
+        <p id="message">Si tienes problemas para entrar, presiona el botón para limpiar tu sesión.</p>
+        <div id="buttons">
+            <button class="btn btn-red" onclick="limpiar()">Limpiar Sesión</button>
+            <button class="btn btn-amber" onclick="irInicio()">Ir al Inicio</button>
+        </div>
+    </div>
+
+    <script>
+        function verificar() {
+            try {
+                var userData = localStorage.getItem('user');
+                if (userData) {
+                    try {
+                        var parsed = JSON.parse(userData);
+                        if (parsed && parsed.id) {
+                            document.getElementById('status').innerHTML = 
+                                '<strong>Sesión activa:</strong> ' + (parsed.email || parsed.name || 'Usuario');
+                        } else {
+                            document.getElementById('status').innerHTML = 
+                                '<strong>Sesión corrupta</strong> - Presiona Limpiar';
+                        }
+                    } catch (e) {
+                        document.getElementById('status').innerHTML = 
+                            '<strong>Sesión corrupta</strong> - Presiona Limpiar';
+                    }
+                } else {
+                    document.getElementById('status').innerHTML = 
+                        '<strong>No hay sesión guardada</strong>';
+                }
+            } catch (e) {
+                document.getElementById('status').innerHTML = 
+                    '<strong>Error:</strong> ' + e.message;
+            }
+        }
+
+        function limpiar() {
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                document.getElementById('status').innerHTML = 
+                    '<span class="success">✓ Sesión limpiada correctamente</span>';
+                document.getElementById('message').innerHTML = 
+                    'Ahora puedes ir al inicio y volver a entrar.';
+            } catch (e) {
+                alert('Error al limpiar: ' + e.message);
+            }
+        }
+
+        function irInicio() {
+            window.location.href = '/';
+        }
+
+        verificar();
+    </script>
+</body>
+</html>
