@@ -49,14 +49,35 @@ export default function CredentialPage() {
   const credentialRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const userData = localStorage.getItem('user')
-    if (!userData) {
+    try {
+      const userData = localStorage.getItem('user')
+      if (!userData) {
+        router.push('/')
+        return
+      }
+      
+      let parsedUser
+      try {
+        parsedUser = JSON.parse(userData)
+      } catch (parseError) {
+        console.error('Error parsing user data:', parseError)
+        localStorage.removeItem('user')
+        router.push('/')
+        return
+      }
+      
+      if (!parsedUser || !parsedUser.id) {
+        localStorage.removeItem('user')
+        router.push('/')
+        return
+      }
+      
+      setUser(parsedUser)
+      fetchBeeData(parsedUser.id)
+    } catch (error) {
+      console.error('Error in useEffect:', error)
       router.push('/')
-      return
     }
-    const parsedUser = JSON.parse(userData)
-    setUser(parsedUser)
-    fetchBeeData(parsedUser.id)
   }, [router])
 
   const fetchBeeData = async (userId: string) => {
