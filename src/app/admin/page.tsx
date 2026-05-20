@@ -170,23 +170,44 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
 
   useEffect(() => {
-    const userData = localStorage.getItem('user')
-    if (!userData) {
+    try {
+      const userData = localStorage.getItem('user')
+      if (!userData) {
+        router.push('/')
+        return
+      }
+      
+      let parsedUser
+      try {
+        parsedUser = JSON.parse(userData)
+      } catch (parseError) {
+        console.error('Error parsing user data:', parseError)
+        localStorage.removeItem('user')
+        router.push('/')
+        return
+      }
+      
+      if (!parsedUser || !parsedUser.id) {
+        localStorage.removeItem('user')
+        router.push('/')
+        return
+      }
+      
+      setUser(parsedUser)
+      
+      const isAdmin = parsedUser.role === 'admin'
+      const isPresidenta = parsedUser.bee?.memberType === 'presidente'
+      
+      if (!isAdmin && !isPresidenta) {
+        router.push('/dashboard')
+        return
+      }
+      
+      fetchData()
+    } catch (error) {
+      console.error('Error in useEffect:', error)
       router.push('/')
-      return
     }
-    const parsedUser = JSON.parse(userData)
-    setUser(parsedUser)
-    
-    const isAdmin = parsedUser.role === 'admin'
-    const isPresidenta = parsedUser.bee?.memberType === 'presidente'
-    
-    if (!isAdmin && !isPresidenta) {
-      router.push('/dashboard')
-      return
-    }
-    
-    fetchData()
   }, [router])
 
   const fetchData = async () => {
